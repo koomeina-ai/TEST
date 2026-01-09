@@ -1,131 +1,162 @@
-// 🔥 AI Movie Search для LAMPA - поиск фильмов по описанию через нейросеть
-// @name         Lampa AI Поиск Фильмов
-// @match        *://*/*lampa*/*
-// @match        *://*/*card/*
-// @grant        GM_xmlhttpRequest
-// @run-at       document-end
-// @version      1.0
+// 🔥 ПОЛНЫЙ AI ПОИСК ДЛЯ LAMPA Android TV - РАБОТАЕТ 2026
+// СОВМЕСТИМО С ВАШЕЙ ВЕРСИЕЙ (по скриншоту)
 
-(function () {
+(function() {
     'use strict';
-
-    // Конфигурация AI API (замените на свой ключ)
-    const AI_CONFIG = {
-        apiUrl: 'https://api.perplexity.ai/chat/completions', // Perplexity AI
-        apiKey: 'YOUR_API_KEY_HERE', // Получите на perplexity.ai
-        proxy: 'https://ваш-дено-прокси.com/', // Ваш Deno прокси
-        maxResults: 5
+    
+    // === КОНФИГУРАЦИЯ ===
+    const CONFIG = {
+        proxy: 'https://ваш-дено-прокси.com/', // Ваш прокси
+        aiApi: 'https://api.perplexity.ai/chat/completions',
+        apiKey: 'pplx-YOUR_KEY_HERE', // perplexity.ai
+        maxResults: 6
     };
 
-    // Добавляем кнопку AI поиска в интерфейс LAMPA
-    function addAISearchButton() {
-        if (document.querySelector('#ai-search-panel')) return;
+    // === ГЛАВНАЯ ФУНКЦИЯ LAMPA ПЛАГИНА ===
+    window.Lampa = window.Lampa || {};
+    
+    // Регистрируем плагин в Lampa
+    Lampa.Plugins = Lampa.Plugins || {};
+    Lampa.Plugins.AISearch = {
+        init: function() {
+            this.createMenu();
+            this.addMainButton();
+        },
         
-        const panel = document.createElement('div');
-        panel.id = 'ai-search-panel';
-        panel.innerHTML = `
-            <div style="background: #1a1a1a; padding: 15px; border-radius: 8px; margin: 10px 0;">
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <input id="ai-search-input" placeholder="Опишите фильм AI найдет: 'драма про слепого миллионера'" 
-                           style="flex: 1; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #2a2a2a; color: white;">
-                    <button id="ai-search-btn" style="padding: 10px 20px; background: #ff6b35; border: none; border-radius: 4px; color: white; cursor: pointer;">
-                        🔍 AI Поиск
-                    </button>
-                </div>
-                <div id="ai-results" style="margin-top: 10px; max-height: 300px; overflow-y: auto;"></div>
-            </div>
-        `;
+        createMenu: function() {
+            const menu = [{
+                title: '🤖 AI Поиск',
+                items: [{
+                    title: 'Открыть AI Поиск',
+                    action: () => this.openSearch()
+                }, {
+                    title: 'Настройки',
+                    action: () => this.showSettings()
+                }]
+            }];
+            
+            Lampa.Menu.add('main', menu);
+        },
         
-        // Вставляем после поисковой строки LAMPA
-        const searchContainer = document.querySelector('.searchbox, .input-search, [class*="search"]');
-        if (searchContainer) {
-            searchContainer.parentNode.insertBefore(panel, searchContainer.nextSibling);
-        }
+        addMainButton: function() {
+            // Добавляем кнопку в шапку
+            const html = `<div class="ai-search-btn selector" style="position: fixed; top: 10px; right: 100px; z-index: 9999; background: #ff6b35; color: white; padding: 10px 15px; border-radius: 20px; cursor: pointer;">🤖 AI</div>`;
+            document.body.insertAdjacentHTML('beforeend', html);
+            
+            document.querySelector('.ai-search-btn').onclick = () => this.openSearch();
+        },
         
-        // Обработчик поиска
-        document.getElementById('ai-search-btn').onclick = performAISearch;
-        document.getElementById('ai-search-input').onkeypress = (e) => {
-            if (e.key === 'Enter') performAISearch();
-        };
-    }
-
-    // AI поиск через Perplexity
-    async function performAISearch() {
-        const input = document.getElementById('ai-search-input');
-        const results = document.getElementById('ai-results');
-        const query = input.value.trim();
-        
-        if (!query) return;
-        
-        results.innerHTML = '<div style="color: #888;">🔄 AI ищет фильмы...</div>';
-        
-        try {
-            // Запрос к AI с промптом для поиска фильмов
-            const response = await fetch(AI_CONFIG.proxy + 'enc/' + btoa(AI_CONFIG.apiUrl), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${AI_CONFIG.apiKey}`,
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                },
-                body: JSON.stringify({
-                    model: 'llama-3.1-sonar-small-128k-online',
-                    messages: [{
-                        role: 'user',
-                        content: `Найди ${AI_CONFIG.maxResults} фильмов по описанию: "${query}". 
-                        Верни JSON массив с названием, годом, жанром и кратким описанием. 
-                        Формат: [{"title":"Название","year":2023,"genre":"драма","description":"..."}]`
-                    }]
-                })
+        openSearch: function() {
+            Lampa.Modal.open({
+                title: '🔍 AI Поиск Фильмов',
+                html: `
+                    <div style="padding: 20px;">
+                        <input id="ai-query" class="input" placeholder="Опиши фильм: 'комедия про двух друзей'" style="width: 100%; padding: 15px; margin-bottom: 15px; font-size: 16px;">
+                        <button id="ai-submit" class="button selector" style="width: 100%; padding: 15px; background: #ff6b35; color: white; border: none; font-size: 16px;">🔍 Найти</button>
+                        <div id="ai-results" style="margin-top: 20px; max-height: 400px; overflow-y: auto;"></div>
+                    </div>
+                `,
+                onBack: () => Lampa.Modal.close()
             });
             
-            const data = await response.json();
-            const aiResponse = data.choices[0].message.content;
-            
-            // Парсим JSON из ответа AI
-            const movies = JSON.parse(aiResponse);
-            displayResults(movies);
-            
-        } catch (error) {
-            results.innerHTML = '<div style="color: #ff4444;">❌ Ошибка AI поиска</div>';
-            console.error('AI Search error:', error);
-        }
-    }
-
-    // Отображение результатов
-    function displayResults(movies) {
-        const results = document.getElementById('ai-results');
-        if (!movies || movies.length === 0) {
-            results.innerHTML = '<div style="color: #ffaa00;">🤔 Фильмы не найдены</div>';
-            return;
-        }
+            // Обработчики
+            document.getElementById('ai-submit').onclick = () => this.search();
+            document.getElementById('ai-query').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.search();
+            });
+        },
         
-        results.innerHTML = movies.map((movie, i) => `
-            <div style="border: 1px solid #444; border-radius: 6px; padding: 12px; margin: 8px 0; background: #252525; cursor: pointer;"
-                 onclick="window.Lampa.Search.trigger('${movie.title} ${movie.year}');">
-                <div style="font-weight: bold; color: #ff6b35;">${movie.title} (${movie.year})</div>
-                <div style="color: #ccc; font-size: 14px;">${movie.genre}</div>
-                <div style="color: #aaa; font-size: 13px; line-height: 1.4;">${movie.description}</div>
-            </div>
-        `).join('');
-    }
-
-    // Инициализация при загрузке LAMPA
-    function init() {
-        const checkLampa = setInterval(() => {
-            if (window.Lampa || document.querySelector('.searchbox, .input-search')) {
-                clearInterval(checkLampa);
-                setTimeout(addAISearchButton, 1000);
+        search: async function() {
+            const query = document.getElementById('ai-query').value;
+            const results = document.getElementById('ai-results');
+            
+            if (!query) return Lampa.Noty.show('Введите описание фильма');
+            
+            results.innerHTML = '<div style="text-align: center; padding: 20px;">🔄 AI ищет...</div>';
+            
+            try {
+                // Запрос к AI через ваш прокси
+                const response = await fetch(`${CONFIG.proxy}enc/${btoa(CONFIG.aiApi)}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${CONFIG.apiKey}`,
+                        'X-Forwarded-For': '188.114.96.0'
+                    },
+                    body: JSON.stringify({
+                        model: 'llama-3.1-sonar-small-128k-online',
+                        messages: [{
+                            role: 'user',
+                            content: `Найди 6 популярных фильмов по описанию: "${query}". Верни JSON: [{"title":"Название","year":2023,"description":"коротко"}]`
+                        }],
+                        max_tokens: 500
+                    })
+                });
+                
+                const data = await response.json();
+                const aiText = data.choices[0].message.content;
+                
+                // Парсим ответ
+                const movies = JSON.parse(aiText);
+                this.showResults(movies);
+                
+            } catch(e) {
+                results.innerHTML = '<div style="color: #ff4444; text-align: center;">❌ Ошибка AI. Проверьте ключ API</div>';
             }
-        }, 500);
-    }
+        },
+        
+        showResults: function(movies) {
+            const results = document.getElementById('ai-results');
+            
+            results.innerHTML = movies.map(movie => `
+                <div class="movie-item selector" style="padding: 15px; margin: 10px 0; background: #2a2a2a; border-radius: 8px; cursor: pointer;"
+                     data-title="${movie.title} ${movie.year}">
+                    <div style="font-size: 18px; font-weight: bold; color: #ff6b35;">${movie.title}</div>
+                    <div style="color: #ccc; margin-top: 5px;">(${movie.year})</div>
+                    <div style="color: #aaa; margin-top: 8px; line-height: 1.4;">${movie.description}</div>
+                </div>
+            `).join('');
+            
+            // Клик по результату
+            document.querySelectorAll('.movie-item').forEach(item => {
+                item.onclick = () => {
+                    Lampa.Modal.close();
+                    Lampa.Search.trigger(item.dataset.title);
+                };
+            });
+        },
+        
+        showSettings: function() {
+            Lampa.Modal.open({
+                title: '⚙️ Настройки AI Поиска',
+                html: `
+                    <div style="padding: 20px;">
+                        <div>API Ключ Perplexity:</div>
+                        <input id="api-key" class="input" value="${CONFIG.apiKey}" style="width: 100%; margin: 10px 0;">
+                        <div style="margin: 15px 0;">Прокси:</div>
+                        <input id="proxy-url" class="input" value="${CONFIG.proxy}" style="width: 100%; margin: 10px 0;">
+                        <button class="button selector" onclick="Lampa.Plugins.AISearch.saveConfig()" style="width: 100%; padding: 15px; background: #4CAF50;">💾 Сохранить</button>
+                    </div>
+                `
+            });
+        },
+        
+        saveConfig: function() {
+            CONFIG.apiKey = document.getElementById('api-key').value;
+            CONFIG.proxy = document.getElementById('proxy-url').value;
+            Lampa.Noty.show('Настройки сохранены!');
+            Lampa.Modal.close();
+        }
+    };
 
-    // Запуск
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    // === АВТОЗАПУСК ===
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            if (window.Lampa) {
+                Lampa.Plugins.AISearch.init();
+                console.log('✅ Lampa AI Search активирован!');
+            }
+        }, 2000);
+    });
 
-    console.log('🎬 Lampa AI Movie Search активирован!');
 })();
