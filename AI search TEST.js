@@ -1,162 +1,146 @@
-// 🔥 ПОЛНЫЙ AI ПОИСК ДЛЯ LAMPA Android TV - РАБОТАЕТ 2026
-// СОВМЕСТИМО С ВАШЕЙ ВЕРСИЕЙ (по скриншоту)
-
 (function() {
     'use strict';
-    
-    // === КОНФИГУРАЦИЯ ===
+
     const CONFIG = {
-        proxy: 'https://ваш-дено-прокси.com/', // Ваш прокси
-        aiApi: 'https://api.perplexity.ai/chat/completions',
-        apiKey: 'pplx-YOUR_KEY_HERE', // perplexity.ai
-        maxResults: 6
+        proxy: 'xn-----6kchmgwpzkblnq8g.com', 
+        aiApi: 'api.perplexity.ai',
+        apiKey: 'pplx-ВАШ_КЛЮЧ', 
+        model: 'sonar' // Актуальная модель на 2026 год
     };
 
-    // === ГЛАВНАЯ ФУНКЦИЯ LAMPA ПЛАГИНА ===
     window.Lampa = window.Lampa || {};
     
-    // Регистрируем плагин в Lampa
-    Lampa.Plugins = Lampa.Plugins || {};
     Lampa.Plugins.AISearch = {
         init: function() {
-            this.createMenu();
             this.addMainButton();
+            // Ждем готовности меню
+            Lampa.Listener.follow('app', (e) => {
+                if (e.type === 'ready') this.createMenu();
+            });
         },
-        
+
         createMenu: function() {
-            const menu = [{
-                title: '🤖 AI Поиск',
-                items: [{
-                    title: 'Открыть AI Поиск',
-                    action: () => this.openSearch()
-                }, {
-                    title: 'Настройки',
-                    action: () => this.showSettings()
-                }]
-            }];
+            let menu_item = {
+                title: 'AI Поиск',
+                icon: '<svg height="36" viewBox="0 0 24 24" width="36" xmlns="www.w3.org"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/><path d="M0 0h24v24H0z" fill="none"/></svg>',
+                section: 'main'
+            };
             
-            Lampa.Menu.add('main', menu);
+            // Интеграция в левое меню Lampa
+            Lampa.Menu.add(menu_item, () => {
+                this.openSearch();
+            });
         },
-        
+
         addMainButton: function() {
-            // Добавляем кнопку в шапку
-            const html = `<div class="ai-search-btn selector" style="position: fixed; top: 10px; right: 100px; z-index: 9999; background: #ff6b35; color: white; padding: 10px 15px; border-radius: 20px; cursor: pointer;">🤖 AI</div>`;
-            document.body.insertAdjacentHTML('beforeend', html);
+            const btn = $(`<div class="ai-search-btn selector" style="position: fixed; top: 1.5rem; right: 10rem; z-index: 999; background: #ff6b35; color: white; padding: 0.8rem 1.5rem; border-radius: 2rem; cursor: pointer; display: flex; align-items: center;">
+                <span style="margin-right: 5px;">🤖</span> AI Поиск
+            </div>`);
             
-            document.querySelector('.ai-search-btn').onclick = () => this.openSearch();
+            btn.on('hover:enter click', () => this.openSearch());
+            $('body').append(btn);
         },
-        
+
         openSearch: function() {
-            Lampa.Modal.open({
-                title: '🔍 AI Поиск Фильмов',
-                html: `
-                    <div style="padding: 20px;">
-                        <input id="ai-query" class="input" placeholder="Опиши фильм: 'комедия про двух друзей'" style="width: 100%; padding: 15px; margin-bottom: 15px; font-size: 16px;">
-                        <button id="ai-submit" class="button selector" style="width: 100%; padding: 15px; background: #ff6b35; color: white; border: none; font-size: 16px;">🔍 Найти</button>
-                        <div id="ai-results" style="margin-top: 20px; max-height: 400px; overflow-y: auto;"></div>
+            const html = $(`
+                <div class="ai-search-modal" style="padding: 1rem;">
+                    <div class="ai-search-input-wrap" style="margin-bottom: 1.5rem;">
+                        <input type="text" class="ai-input selector" placeholder="Опишите фильм (например: триллер про космос с неожиданным концом)" style="width: 100%; background: rgba(255,255,255,0.1); border: none; padding: 1rem; color: #fff; border-radius: 0.5rem;">
                     </div>
-                `,
-                onBack: () => Lampa.Modal.close()
+                    <div class="ai-btn-search selector" style="width: 100%; background: #ff6b35; padding: 1rem; text-align: center; border-radius: 0.5rem; font-weight: bold; margin-bottom: 1.5rem;">НАЙТИ</div>
+                    <div class="ai-results-container"></div>
+                </div>
+            `);
+
+            Lampa.Modal.open({
+                title: 'Интеллектуальный подбор',
+                html: html,
+                size: 'medium',
+                onBack: () => {
+                    Lampa.Modal.close();
+                    Lampa.Controller.toggle('content');
+                }
             });
-            
-            // Обработчики
-            document.getElementById('ai-submit').onclick = () => this.search();
-            document.getElementById('ai-query').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.search();
+
+            // Активируем контроллер пульта для модалки
+            Lampa.Controller.add('ai_modal', {
+                toggle: () => {
+                    Lampa.Controller.collectionSet(html);
+                    Lampa.Controller.navigate();
+                },
+                back: () => {
+                    Lampa.Modal.close();
+                    Lampa.Controller.toggle('content');
+                }
             });
+            Lampa.Controller.toggle('ai_modal');
+
+            html.find('.ai-btn-search').on('hover:enter click', () => this.startSearch(html));
         },
-        
-        search: async function() {
-            const query = document.getElementById('ai-query').value;
-            const results = document.getElementById('ai-results');
+
+        startSearch: async function(html) {
+            const query = html.find('.ai-input').val();
+            const container = html.find('.ai-results-container');
             
-            if (!query) return Lampa.Noty.show('Введите описание фильма');
-            
-            results.innerHTML = '<div style="text-align: center; padding: 20px;">🔄 AI ищет...</div>';
-            
+            if (!query) return Lampa.Noty.show('Введите описание!');
+
+            container.html('<div style="text-align: center; padding: 2rem;">🧠 Нейросеть думает...</div>');
+
             try {
-                // Запрос к AI через ваш прокси
                 const response = await fetch(`${CONFIG.proxy}enc/${btoa(CONFIG.aiApi)}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${CONFIG.apiKey}`,
-                        'X-Forwarded-For': '188.114.96.0'
+                        'Authorization': `Bearer ${CONFIG.apiKey}`
                     },
                     body: JSON.stringify({
-                        model: 'llama-3.1-sonar-small-128k-online',
+                        model: CONFIG.model,
                         messages: [{
-                            role: 'user',
-                            content: `Найди 6 популярных фильмов по описанию: "${query}". Верни JSON: [{"title":"Название","year":2023,"description":"коротко"}]`
-                        }],
-                        max_tokens: 500
+                            role: 'user', 
+                            content: `Найди 6 фильмов по описанию: "${query}". Ответь ТОЛЬКО чистым JSON массивом без текста и кавычек в начале: [{"title":"Название","year":2024,"desc":"описание"}]`
+                        }]
                     })
                 });
-                
+
                 const data = await response.json();
-                const aiText = data.choices[0].message.content;
+                let content = data.choices[0].message.content;
                 
-                // Парсим ответ
-                const movies = JSON.parse(aiText);
-                this.showResults(movies);
-                
-            } catch(e) {
-                results.innerHTML = '<div style="color: #ff4444; text-align: center;">❌ Ошибка AI. Проверьте ключ API</div>';
+                // Очистка от Markdown (если AI прислал ```json)
+                content = content.replace(/```json|```/g, '').trim();
+                const movies = JSON.parse(content);
+
+                container.empty();
+                movies.forEach(movie => {
+                    const item = $(`
+                        <div class="movie-item selector" style="padding: 1rem; background: rgba(255,255,255,0.05); margin-bottom: 0.5rem; border-radius: 0.5rem;">
+                            <div style="color: #ff6b35; font-weight: bold;">${movie.title} (${movie.year})</div>
+                            <div style="font-size: 0.8rem; opacity: 0.6;">${movie.desc}</div>
+                        </div>
+                    `);
+
+                    item.on('hover:enter click', () => {
+                        Lampa.Modal.close();
+                        Lampa.Search.trigger(`${movie.title} ${movie.year}`);
+                    });
+
+                    container.append(item);
+                });
+
+                // Обновляем навигацию пульта
+                Lampa.Controller.toggle('ai_modal');
+
+            } catch (e) {
+                console.error(e);
+                container.html('<div style="color: #ff4444;">Ошибка: проверьте ключ API или прокси</div>');
             }
-        },
-        
-        showResults: function(movies) {
-            const results = document.getElementById('ai-results');
-            
-            results.innerHTML = movies.map(movie => `
-                <div class="movie-item selector" style="padding: 15px; margin: 10px 0; background: #2a2a2a; border-radius: 8px; cursor: pointer;"
-                     data-title="${movie.title} ${movie.year}">
-                    <div style="font-size: 18px; font-weight: bold; color: #ff6b35;">${movie.title}</div>
-                    <div style="color: #ccc; margin-top: 5px;">(${movie.year})</div>
-                    <div style="color: #aaa; margin-top: 8px; line-height: 1.4;">${movie.description}</div>
-                </div>
-            `).join('');
-            
-            // Клик по результату
-            document.querySelectorAll('.movie-item').forEach(item => {
-                item.onclick = () => {
-                    Lampa.Modal.close();
-                    Lampa.Search.trigger(item.dataset.title);
-                };
-            });
-        },
-        
-        showSettings: function() {
-            Lampa.Modal.open({
-                title: '⚙️ Настройки AI Поиска',
-                html: `
-                    <div style="padding: 20px;">
-                        <div>API Ключ Perplexity:</div>
-                        <input id="api-key" class="input" value="${CONFIG.apiKey}" style="width: 100%; margin: 10px 0;">
-                        <div style="margin: 15px 0;">Прокси:</div>
-                        <input id="proxy-url" class="input" value="${CONFIG.proxy}" style="width: 100%; margin: 10px 0;">
-                        <button class="button selector" onclick="Lampa.Plugins.AISearch.saveConfig()" style="width: 100%; padding: 15px; background: #4CAF50;">💾 Сохранить</button>
-                    </div>
-                `
-            });
-        },
-        
-        saveConfig: function() {
-            CONFIG.apiKey = document.getElementById('api-key').value;
-            CONFIG.proxy = document.getElementById('proxy-url').value;
-            Lampa.Noty.show('Настройки сохранены!');
-            Lampa.Modal.close();
         }
     };
 
-    // === АВТОЗАПУСК ===
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
-            if (window.Lampa) {
-                Lampa.Plugins.AISearch.init();
-                console.log('✅ Lampa AI Search активирован!');
-            }
-        }, 2000);
-    });
+    // Запуск
+    if (window.appready) Lampa.Plugins.AISearch.init();
+    else Lampa.Listener.follow('app', (e) => { if (e.type === 'ready') Lampa.Plugins.AISearch.init(); });
+
+})();
+
 
 })();
