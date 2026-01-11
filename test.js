@@ -1,8 +1,8 @@
 (function () {
     window.plugin_font_size = {
-        name: 'Размер шрифта Max',
-        version: '1.1.0',
-        description: 'Изменение размера текста от 8 до 36px'
+        name: 'Размер шрифта Fixed',
+        version: '1.2.0',
+        description: 'Изменение размера текста от 8 до 36px с исправлением меню'
     };
 
     function start() {
@@ -17,11 +17,11 @@
 
                 item.on('hover:enter', function () {
                     var items = [];
-                    // Генерируем список от 8 до 36
                     for (var i = 8; i <= 36; i++) {
                         items.push({
                             title: i + 'px',
-                            value: i
+                            value: i,
+                            selected: i == current
                         });
                     }
 
@@ -32,6 +32,10 @@
                             Lampa.Storage.set('font_size_value', a.value);
                             applySize(a.value);
                             item.find('.settings-param__value').text(a.value + 'px');
+                            Lampa.Controller.back(); // Закрываем меню выбора
+                        },
+                        onBack: function(){
+                            Lampa.Controller.back(); // Возврат по кнопке "назад"
                         }
                     });
                 });
@@ -46,7 +50,6 @@
             if (!style.length) {
                 style = $('<style id="plugin-font-size-style"></style>').appendTo('head');
             }
-            // Применяем ко всему интерфейсу через root и body
             style.text('html, body { font-size: ' + val + 'px !important; }');
         }
 
