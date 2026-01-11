@@ -1,33 +1,38 @@
 (function() {
     'use strict';
 
-    function addVisualElement() {
-        console.log('Visual Addition Plugin Loaded');
+    function addTopMenuButton() {
+        console.log('Top Menu Button Plugin Loaded');
 
-        // Создаем новый HTML-элемент с красным текстом
-        var visualElement = $('<div>')
-            .text('✅ МОЙ ПЛАГИН РАБОТАЕТ!')
-            .css({
-                'position': 'fixed',
-                'bottom': '20px',
-                'right': '20px',
-                'color': 'red', // Делаем текст красным
-                'font-size': '24px',
-                'background-color': 'rgba(0, 0, 0, 0.7)',
-                'padding': '10px',
-                'z-index': '10000'
-            })
-            .attr('id', 'my-test-visual-element'); // Даем ID для контроля
+        // Ждем, пока прорисуется верхнее меню (класс .header)
+        Lampa.Listener.follow('app', function(e) {
+            if (e.type === 'ready') {
+                var header = $('.header');
+                
+                if (header.length) {
+                    // Создаем новый элемент кнопки
+                    var newButton = $('<div>')
+                        .addClass('header__item selector') // Используем стандартные классы Lampa
+                        .attr('data-action', 'my_custom_hello_button')
+                        .html('Привет!'); // Текст кнопки
 
-        // Добавляем элемент в тело документа
-        $('body').append(visualElement);
-        
-        Lampa.Noty.show('Плагин загружен: Красная надпись добавлена!');
+                    // Обработчик события нажатия/выбора на пульте
+                    newButton.on('hover:enter', function() {
+                        Lampa.Noty.show('Вы нажали на мою кастомную кнопку!');
+                    });
+
+                    // Добавляем кнопку в контейнер верхнего меню
+                    header.find('.header__content').append(newButton);
+
+                    Lampa.Noty.show('Кнопка "Привет!" добавлена в верхнее меню.');
+                }
+            }
+        });
     }
 
     // Запуск плагина после полной загрузки приложения Lampa
-    if (window.appready) addVisualElement();
+    if (window.appready) addTopMenuButton();
     else Lampa.Listener.follow('app', (e) => {
-        if (e.type === 'ready') addVisualElement();
+        if (e.type === 'ready') addTopMenuButton();
     });
 })();
