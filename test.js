@@ -33,6 +33,9 @@
                     });
                 });
 
+                // Добавляем зеленое обрамление для активного состояния
+                item.addClass('font-size-selector');
+
                 e.body.find('[data-name="interface_size"]').after(item);
             }
         });
@@ -43,8 +46,22 @@
             if (!style.length) {
                 style = $('<style id="plugin-font-size-style"></style>').appendTo('head');
             }
-            // Применяем ко всему интерфейсу
-            style.text('html, body { font-size: ' + val + 'px !important; }');
+            
+            // Стили для шрифта и зеленого обрамления кнопки
+            style.text(`
+                html, body { 
+                    font-size: ${val}px !important; 
+                }
+                .font-size-selector.selector.focus,
+                .font-size-selector.selector.hover {
+                    box-shadow: 0 0 0 2px #00ff00 !important;
+                    border-radius: 4px !important;
+                }
+                .font-size-selector.selector.focus .settings-param__name,
+                .font-size-selector.selector.hover .settings-param__name {
+                    color: #ffffff !important;
+                }
+            `);
         }
 
         applySize();
