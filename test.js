@@ -1,194 +1,192 @@
 (function () {
-    window.plugin_actor_search = {
-        name: 'Поиск по актёрам',
-        version: '1.0.0',
-        description: 'Добавляет поиск по актёрам в меню поиска'
+    window.plugin_smart_search = {
+        name: 'Умный поиск',
+        version: '1.1.0',
+        description: 'Поиск по актёрам + темам фильмов'
     };
 
     const TMDB_API_KEY = 'f2c4932089dbdce7a6ccf0c21087eab6';
 
     function start() {
         // Перехватываем открытие поиска
-        Lampa.Listener.follow('app', function(e) {
-            if (e.type == 'search_open') {
-                addActorSearchOption();
-            }
-        });
+        setTimeout(() => {
+            overrideSearch();
+        }, 1000);
 
-        // Добавляем кнопку в настройки
+        // Кнопка в настройках (информационная)
         Lampa.Settings.listener.follow('open', function(e) {
             if (e.name == 'interface') {
-                var actorItem = $('<div class="settings-param selector actor-search-selector">' +
-                    '<div class="settings-param__name">🎭 Поиск по актёрам</div>' +
-                    '<div class="settings-param__value">TMDB</div>' +
+                var smartItem = $('<div class="settings-param selector smart-search-selector">' +
+                    '<div class="settings-param__name">🧠 Умный поиск</div>' +
+                    '<div class="settings-param__value">Актёры + Темы</div>' +
                     '<div class="settings-param__descr">В меню поиска</div>' +
                 '</div>');
 
-                actorItem.on('hover:enter', function() {
-                    Lampa.Noty.show('🎭 Поиск по актёрам уже в меню поиска!');
+                smartItem.on('hover:enter', function() {
+                    Lampa.Noty.show('🧠 Уже в меню поиска: актёры + темы!');
                 });
 
-                e.body.find('[data-name="interface_size"]').after(actorItem);
+                e.body.find('[data-name="interface_size"]').after(smartItem);
             }
         });
     }
 
-    function addActorSearchOption() {
-        // Находим стандартное меню поиска
-        setTimeout(() => {
-            var searchPanel = $('.search__input-wrapper, .search-box, [class*="search"]');
-            
-            if (searchPanel.length) {
-                // Добавляем кнопку "Поиск по актёру" 
-                var actorBtn = $('<div class="search__actor-btn selector actor-search-btn">' +
-                    '<div class="search__actor-icon">🎭</div>' +
-                    '<div class="search__actor-text">Поиск по актёру</div>' +
+    function overrideSearch() {
+        // Находим панель поиска и добавляем кнопки
+        var searchPanels = $('.search, .search-box, .head-search, [class*="search"]');
+        
+        searchPanels.each(function() {
+            if (!$(this).find('.smart-search-btn').length) {
+                // Кнопка "Поиск по актёру"
+                var actorBtn = $('<div class="smart-search-btn selector actor-btn">' +
+                    '<div class="btn-icon">🎭</div><div>Актёр</div>' +
                 '</div>');
+                actorBtn.on('hover:enter', () => showActorSearch());
 
-                actorBtn.on('hover:enter', function() {
-                    showActorSearch();
-                });
+                // Кнопка "Поиск по теме"
+                var themeBtn = $('<div class="smart-search-btn selector theme-btn">' +
+                    '<div class="btn-icon">🌌</div><div>Тема</div>' +
+                '</div>');
+                themeBtn.on('hover:enter', () => showThemeSearch());
 
-                // Добавляем если еще нет
-                if (!$('.search__actor-btn').length) {
-                    searchPanel.after(actorBtn);
-                }
+                $(this).append('<div class="smart-search-buttons"></div>')
+                       .find('.smart-search-buttons').append(actorBtn, themeBtn);
             }
-        }, 300);
+        });
     }
 
+    // === ПОИСК ПО АКТЁРАМ ===
     function showActorSearch() {
         Lampa.Input.edit({
-            title: '🔍 Введите имя актёра',
+            title: '🎭 Имя актёра',
             value: '',
-            onEnter: async function(value) {
-                if (value.length < 2) {
-                    Lampa.Noty.show('Введите минимум 2 символа');
-                    return;
-                }
-
-                // Показываем индикатор загрузки
-                Lampa.Noty.show('🔍 Поиск актёра...');
-
-                try {
-                    var actors = await searchActors(value);
-                    showActorsList(actors);
-                } catch(e) {
-                    Lampa.Noty.show('Ошибка поиска. Проверьте интернет.');
-                }
-            },
-            onCancel: function() {}
+            onEnter: async (value) => {
+                if (value.length < 2) return Lampa.Noty.show('Минимум 2 символа');
+                await searchActors(value);
+            }
         });
     }
 
     async function searchActors(query) {
-        var url = `https://api.themoviedb.org/3/search/person?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=ru-RU`;
+        Lampa.Noty.show('🔍 Ищем актёров...');
         
-        var response = await fetch(url);
-        var data = await response.json();
-        
-        return data.results.slice(0, 20); // Топ 20 актёров
+        try {
+            var url = `https://api.themoviedb.org/3/search/person?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=ru-RU`;
+            var data = await (await fetch(url)).json();
+            
+            showActorsList(data.results);
+        } catch(e) {
+            Lampa.Noty.show('Ошибка поиска');
+        }
+    }
+
+    // === ПОИСК ПО ТЕМАМ ===
+    function showThemeSearch() {
+        Lampa.Select.show({
+            title: '🌌 Поиск по темам',
+            items: [
+                {title: '🚀 Космос',        search: 'space OR космос OR interstellar OR mars'},
+                {title: '⚔️ Средневековье', search: 'medieval OR рыцари OR короли OR замки'},
+                {title: '🦸 Супергерои',   search: 'marvel OR dc OR супергерои OR мстители'},
+                {title: '🧟 Зомби',        search: 'zombie OR зомби OR walking dead'},
+                {title: '💀 Мафия',        search: 'mafia OR мафия OR гангстеры OR godfather'},
+                {title: '🎯 Шпионы',       search: 'spy OR шпион OR bond OR kingsman'},
+                {title: '🏃 Погони',       search: 'chase OR fast OR форсаж OR погони'},
+                {title: '👻 Призраки',     search: 'ghost OR призрак OR haunted'},
+                {title: '💎 Ограбления',   search: 'heist OR ограбление OR bank'},
+                {title: '❤️ Романтика',    search: 'romance OR любовь OR романтический'},
+                {title: '😂 Комедии',      search: 'comedy OR комедия OR смешно'},
+                {title: '😱 Триллеры',    search: 'thriller OR триллер OR suspense'}
+            ],
+            onSelect: (item) => {
+                Lampa.Search.start({query: item.search});
+            }
+        });
     }
 
     function showActorsList(actors) {
-        var items = [{
-            title: '🎭 Найдено актёров: ' + actors.length,
-            separator: true
-        }];
-
-        actors.forEach(function(actor) {
-            var moviesCount = actor.known_for ? actor.known_for.length : 0;
-            
+        var items = [{separator: true, title: `🎭 Актёров: ${actors.length}` }];
+        
+        actors.slice(0, 15).forEach(actor => {
+            var movies = actor.known_for?.length || 0;
             items.push({
-                title: `🎬 ${actor.name}`,
-                subtitle: `${moviesCount} фильмов • ${actor.known_for_department}`,
+                title: actor.name,
+                subtitle: `${movies} фильмов • ${actor.known_for_department}`,
                 img: `https://image.tmdb.org/t/p/w200${actor.profile_path}`,
-                onSelect: function() {
-                    showActorMovies(actor);
-                }
+                onSelect: () => showActorMovies(actor)
             });
         });
 
         Lampa.Select.show({
             title: '🎭 Выберите актёра',
-            items: items,
-            onBack: function() {
-                addActorSearchOption();
-            }
+            items: items
         });
     }
 
     async function showActorMovies(actor) {
-        Lampa.Noty.show(`🎬 Фильмы ${actor.name}...`);
-
         try {
-            // Получаем фильмы актёра
-            var moviesUrl = `https://api.themoviedb.org/3/person/${actor.id}/movie_credits?api_key=${TMDB_API_KEY}&language=ru-RU`;
-            var moviesResp = await fetch(moviesUrl);
-            var moviesData = await moviesResp.json();
+            var url = `https://api.themoviedb.org/3/person/${actor.id}/movie_credits?api_key=${TMDB_API_KEY}&language=ru-RU`;
+            var data = await (await fetch(url)).json();
             
-            var items = [];
-            moviesData.cast.slice(0, 50).forEach(function(movie) {
-                items.push({
-                    title: movie.title,
-                    subtitle: new Date(movie.release_date).getFullYear(),
-                    descr: movie.character,
-                    img: `https://image.tmdb.org/t/p/w300${movie.poster_path}`,
-                    onSelect: function() {
-                        openMovieInLampa(movie);
-                    }
-                });
-            });
+            var items = data.cast.slice(0, 30).map(movie => ({
+                title: movie.title,
+                subtitle: `${new Date(movie.release_date).getFullYear()} • ${movie.character}`,
+                onSelect: () => Lampa.Search.start({query: movie.title})
+            }));
 
             Lampa.Select.show({
                 title: `🎬 Фильмы ${actor.name}`,
-                items: items,
-                onBack: function() {
-                    showActorsList([actor]);
-                }
+                items: items
             });
         } catch(e) {
-            Lampa.Noty.show('Ошибка загрузки фильмов');
+            Lampa.Noty.show('Ошибка загрузки');
         }
     }
 
-    function openMovieInLampa(movie) {
-        // Открываем стандартный поиск Lampa по названию
-        Lampa.Search.start({
-            query: movie.title
-        });
-    }
-
-    // Стили
-    $('<style id="actor-search-style">').text(`
-        .search__actor-btn {
+    // Красивые стили
+    $('<style id="smart-search-style">').text(`
+        .smart-search-buttons {
             display: flex;
-            align-items: center;
-            padding: 12px 15px;
-            background: #1a1a1a;
-            border: 1px solid #00ff41;
-            border-radius: 8px;
-            margin: 8px 0;
-            cursor: pointer;
+            gap: 10px;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
         }
-        .search__actor-btn.focus, .search__actor-btn.hover {
+        .smart-search-btn {
+            flex: 1;
+            padding: 12px;
+            background: #1a1a1a;
+            border: 2px solid #00ff41;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        .smart-search-btn.focus, .smart-search-btn.hover {
             box-shadow: 0 0 0 3px #00ff00 !important;
             background: #00ff41 !important;
             color: #000 !important;
+            transform: scale(1.05);
         }
-        .search__actor-icon {
+        .smart-search-btn .btn-icon {
             font-size: 20px;
-            margin-right: 10px;
+            display: block;
+            margin-bottom: 5px;
         }
-        .search__actor-text {
-            font-size: 15px;
-            font-weight: 500;
-        }
-        .actor-search-selector.focus, .actor-search-selector.hover {
+        .smart-search-selector.focus, .smart-search-selector.hover {
             box-shadow: 0 0 0 3px #00ff00 !important;
             border-radius: 6px !important;
         }
     `).appendTo('head');
+
+    // Автообновление поиска при переходах
+    Lampa.Listener.follow('app', function(e) {
+        if (e.type == 'ready' || e.type == 'activity') {
+            setTimeout(overrideSearch, 500);
+        }
+    });
 
     if (window.appready) start();
     else Lampa.Listener.follow('app', function(e) {
