@@ -1,27 +1,22 @@
 (function () {
     window.plugin_font_size = {
         name: 'Размер шрифта',
-        version: '1.3.0',
-        description: 'Плагин с расширенным выбором шрифтов и размеров'
+        version: '1.4.0',
+        description: 'Исправленная версия с принудительным применением шрифтов'
     };
 
     function start() {
-        // Добавляем настройки в раздел "Интерфейс"
         Lampa.Settings.listener.follow('open', function (e) {
             if (e.name == 'interface') {
-                var item = $('<div class="settings-param selector font-size-selector" data-type="range" data-name="font_size_value" data-min="8" data-max="32" data-step="1">' +
+                var item = $('<div class="settings-param selector font-size-selector" data-type="range" data-name="font_size_value">' +
                     '<div class="settings-param__name">Размер шрифта</div>' +
                     '<div class="settings-param__value"></div>' +
-                    '<div class="settings-param__descr">Установите комфортный размер текста (стандарт 16px)</div>' +
+                    '<div class="settings-param__descr">8-32px (стандарт 16px)</div>' +
                 '</div>');
 
-                // Генерируем все размеры от 8 до 32
                 var fontSizes = [];
                 for(var i = 8; i <= 32; i++) {
-                    var label = i <= 16 ? 'Маленький (' + i + 'px)' : 
-                               i <= 20 ? 'Средний (' + i + 'px)' :
-                               i <= 24 ? 'Крупный (' + i + 'px)' : 'Очень крупный (' + i + 'px)';
-                    fontSizes.push({title: label, value: i});
+                    fontSizes.push({title: i + 'px', value: i});
                 }
 
                 item.on('hover:enter', function () {
@@ -30,111 +25,100 @@
                         items: fontSizes,
                         onSelect: function (a) {
                             Lampa.Storage.set('font_size_value', a.value);
-                            applySize(a.value);
+                            applyFont();
                             Lampa.Settings.update();
                         }
                     });
                 });
 
-                // Расширенный выбор шрифтов (35+ шрифтов)
                 var fontItem = $('<div class="settings-param selector font-size-selector" data-name="font_family">' +
                     '<div class="settings-param__name">Шрифт</div>' +
                     '<div class="settings-param__value">Arial</div>' +
-                    '<div class="settings-param__descr">Выберите шрифт интерфейса</div>' +
+                    '<div class="settings-param__descr">Выберите шрифт</div>' +
                 '</div>');
 
                 fontItem.on('hover:enter', function () {
-                    var currentFont = Lampa.Storage.get('font_family', 'Arial, sans-serif');
                     Lampa.Select.show({
-                        title: 'Выбор шрифта (прокрутите для просмотра)',
+                        title: 'Шрифты (прокрутите)',
                         items: [
                             {title: 'Arial', value: 'Arial, sans-serif'},
-                            {title: 'Helvetica', value: '"Helvetica Neue", Helvetica, Arial, sans-serif'},
-                            {title: 'Times New Roman', value: '"Times New Roman", Times, serif'},
-                            {title: 'Georgia', value: 'Georgia, serif'},
                             {title: 'Verdana', value: 'Verdana, Geneva, sans-serif'},
                             {title: 'Tahoma', value: 'Tahoma, Geneva, sans-serif'},
-                            {title: 'Trebuchet MS', value: '"Trebuchet MS", Helvetica, sans-serif'},
-                            {title: 'Impact', value: 'Impact, Haettenschweiler, sans-serif'},
-                            {title: 'Courier New', value: '"Courier New", Courier, monospace'},
-                            {title: 'Lucida Console', value: '"Lucida Console", Monaco, monospace'},
-                            {title: 'Segoe UI', value: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'},
-                            {title: 'Roboto', value: 'Roboto, "Helvetica Neue", sans-serif'},
-                            {title: 'Open Sans', value: '"Open Sans", Arial, sans-serif'},
-                            {title: 'Lato', value: 'Lato, Helvetica Neue, sans-serif'},
-                            {title: 'Montserrat', value: 'Montserrat, Arial, sans-serif'},
-                            {title: 'Raleway', value: 'Raleway, Arial, sans-serif'},
-                            {title: 'PT Sans', value: '"PT Sans", Arial, sans-serif'},
-                            {title: 'PT Serif', value: '"PT Serif", Georgia, serif'},
-                            {title: 'Roboto Condensed', value: '"Roboto Condensed", Arial, sans-serif'},
-                            {title: 'Source Sans Pro', value: '"Source Sans Pro", Arial, sans-serif'},
-                            {title: 'Ubuntu', value: 'Ubuntu, Arial, sans-serif'},
-                            {title: 'Oswald', value: 'Oswald, Arial, sans-serif'},
-                            {title: 'Playfair Display', value: '"Playfair Display", Georgia, serif'},
-                            {title: 'Merriweather', value: 'Merriweather, Georgia, serif'},
-                            {title: 'Nunito', value: 'Nunito, Arial, sans-serif'},
-                            {title: 'Poppins', value: 'Poppins, Arial, sans-serif'},
-                            {title: 'Fira Sans', value: '"Fira Sans", Arial, sans-serif'},
-                            {title: 'Noto Sans', value: '"Noto Sans", Arial, sans-serif'},
-                            {title: 'Work Sans', value: '"Work Sans", Arial, sans-serif'},
-                            {title: 'Cabin', value: 'Cabin, Arial, sans-serif'},
-                            {title: 'Lora', value: 'Lora, Georgia, serif'},
-                            {title: 'Crimson Text', value: '"Crimson Text", Georgia, serif'},
-                            {title: 'Bitter', value: 'Bitter, Georgia, serif'},
-                            {title: 'Libre Baskerville', value: '"Libre Baskerville", Georgia, serif'},
-                            {title: 'Domine', value: 'Domine, Georgia, serif'},
-                            {title: 'Cardo', value: 'Cardo, serif'},
-                            {title: 'EB Garamond', value: '"EB Garamond", serif'}
+                            {title: 'Times', value: '"Times New Roman", serif'},
+                            {title: 'Georgia', value: 'Georgia, serif'},
+                            {title: 'Courier', value: '"Courier New", monospace'},
+                            {title: 'Segoe UI', value: '"Segoe UI", sans-serif'},
+                            {title: 'Trebuchet', value: '"Trebuchet MS", sans-serif'},
+                            {title: 'Impact', value: 'Impact, sans-serif'}
                         ],
                         onSelect: function (a) {
                             Lampa.Storage.set('font_family', a.value);
-                            updateFontValueDisplay();
-                            applySize();
+                            updateFontDisplay();
+                            applyFont();
                             Lampa.Settings.update();
                         }
                     });
                 });
 
                 e.body.find('[data-name="interface_size"]').after(item).after(fontItem);
-                
-                // Обновляем отображение текущего шрифта
-                updateFontValueDisplay();
+                updateDisplays();
             }
         });
 
-        function updateFontValueDisplay() {
-            var fontFamily = Lampa.Storage.get('font_family', 'Arial, sans-serif');
-            var fontNames = fontFamily.split(',')[0].replace(/"/g, '');
-            $('.settings-param[data-name="font_family"] .settings-param__value').text(fontNames);
-        }
-
-        function applySize(size) {
-            var val = size || Lampa.Storage.get('font_size_value', '16');
-            var fontFamily = Lampa.Storage.get('font_family', 'Arial, sans-serif');
+        // КЛЮЧЕВАЯ ИСПРАВЛЕНИЕ: мутируем корневой элемент
+        function applyFont() {
+            var size = Lampa.Storage.get('font_size_value', '16');
+            var family = Lampa.Storage.get('font_family', 'Arial, sans-serif');
             
-            var style = $('#plugin-font-size-style');
-            if (!style.length) {
-                style = $('<style id="plugin-font-size-style"></style>').appendTo('head');
-            }
+            // Удаляем старые стили
+            $('#plugin-font-size-style, #font-override-all').remove();
+            
+            // Создаем новый стиль с !important и широким покрытием
+            $('<style id="font-override-all">').text(`
+                *:not(.native-font *) {
+                    font-family: ${family} !important;
+                    font-size: ${size}px !important;
+                    line-height: 1.2 !important;
+                }
+                html, body {
+                    font-family: ${family} !important;
+                    font-size: ${size}px !important;
+                }
+                .selector, .settings-param, .view--title, .files__title,
+                .item__name, .info__title, .category-full__title {
+                    font-family: ${family} !important;
+                    font-size: ${size}px !important;
+                }
+                .font-size-selector.focus, .font-size-selector.hover {
+                    box-shadow: 0 0 0 3px #00ff00 !important;
+                    border-radius: 6px !important;
+                }
+            `).appendTo('head');
 
-            style.text(`
-                html, body, .selector, .settings-param, .view--title, .files__title { 
-                    font-size: ${val}px !important;
-                    font-family: ${fontFamily} !important;
-                }
-                .font-size-selector.selector.focus,
-                .font-size-selector.selector.hover {
-                    box-shadow: 0 0 0 2px #00ff00 !important;
-                    border-radius: 4px !important;
-                }
-                .font-size-selector.selector.focus .settings-param__name,
-                .font-size-selector.selector.hover .settings-param__name {
-                    color: #ffffff !important;
-                }
-            `);
+            // ПРИНУДИТЕЛЬНО перерисовываем интерфейс
+            if(Lampa.Activity.active()) {
+                Lampa.Activity.active().render();
+            }
+            
+            // Обновляем значения в настройках
+            updateDisplays();
         }
 
-        applySize();
+        function updateDisplays() {
+            var size = Lampa.Storage.get('font_size_value', '16');
+            var family = Lampa.Storage.get('font_family', 'Arial, sans-serif');
+            
+            $('.settings-param[data-name="font_size_value"] .settings-param__value').text(size + 'px');
+            $('.settings-param[data-name="font_family"] .settings-param__value').text(family.split(',')[0].replace(/"/g, ''));
+        }
+
+        function updateFontDisplay() {
+            updateDisplays();
+        }
+
+        // Применяем при загрузке
+        setTimeout(applyFont, 1000);
+        setTimeout(applyFont, 3000);
     }
 
     if (window.appready) start();
