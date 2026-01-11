@@ -1,182 +1,197 @@
 (function () {
-    window.plugin_tmdb_hover = {
-        name: 'TMDB Инфо',
-        version: '1.2.0',
-        description: 'Реальные данные TMDB при наведении'
+    window.plugin_actor_search = {
+        name: 'Поиск по актёрам',
+        version: '1.0.0',
+        description: 'Добавляет поиск по актёрам в меню поиска'
     };
 
-    // БЕСПЛАТНЫЙ TMDB API ключ (public)
     const TMDB_API_KEY = 'f2c4932089dbdce7a6ccf0c21087eab6';
-    let cache = {};
-    let currentRequest = null;
 
     function start() {
-        // Захват hover событий на карточках
-        $(document).on('mouseenter', '.full-start__item, .item, .movie, .card, .full-block__item', function(e) {
-            showTmdbInfo(this);
-        }).on('mouseleave', '.full-start__item, .item, .movie, .card, .full-block__item', function() {
-            hideTmdbInfo();
+        // Перехватываем открытие поиска
+        Lampa.Listener.follow('app', function(e) {
+            if (e.type == 'search_open') {
+                addActorSearchOption();
+            }
+        });
+
+        // Добавляем кнопку в настройки
+        Lampa.Settings.listener.follow('open', function(e) {
+            if (e.name == 'interface') {
+                var actorItem = $('<div class="settings-param selector actor-search-selector">' +
+                    '<div class="settings-param__name">🎭 Поиск по актёрам</div>' +
+                    '<div class="settings-param__value">TMDB</div>' +
+                    '<div class="settings-param__descr">В меню поиска</div>' +
+                '</div>');
+
+                actorItem.on('hover:enter', function() {
+                    Lampa.Noty.show('🎭 Поиск по актёрам уже в меню поиска!');
+                });
+
+                e.body.find('[data-name="interface_size"]').after(actorItem);
+            }
         });
     }
 
-    async function showTmdbInfo(card) {
-        var title = $(card).find('.item__name, .name, .title, h3').first().text().trim();
-        var year = $(card).find('.item__year, .year').first().text().match(/\d{4}/)?.[0];
-
-        if (!title || cache[title + year]) return;
-
-        // Показываем "Загрузка..."
-        showLoadingPopup(title, year);
-        
-        try {
-            // Поиск по TMDB
-            var tmdbData = await searchTmdb(title, year);
-            cache[title + year] = tmdbData;
-            showTmdbPopup(tmdbData, card);
-        } catch(e) {
-            showFallbackPopup(title, year);
-        }
-    }
-
-    async function searchTmdb(title, year) {
-        // Сначала поиск фильма
-        var searchUrl = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(title)}&year=${year}&language=ru-RU`;
-        
-        var searchResp = await fetch(searchUrl);
-        var searchData = await searchResp.json();
-        
-        if (searchData.results && searchData.results[0]) {
-            var movieId = searchData.results[0].id;
+    function addActorSearchOption() {
+        // Находим стандартное меню поиска
+        setTimeout(() => {
+            var searchPanel = $('.search__input-wrapper, .search-box, [class*="search"]');
             
-            // Получаем полную информацию
-            var detailsUrl = `https://api.themoviedb.org/3/movie/${movieId}?api_key=${TMDB_API_KEY}&language=ru-RU&append_to_response=credits`;
-            var detailsResp = await fetch(detailsUrl);
-            return await detailsResp.json();
-        }
-        
-        throw new Error('Фильм не найден');
+            if (searchPanel.length) {
+                // Добавляем кнопку "Поиск по актёру" 
+                var actorBtn = $('<div class="search__actor-btn selector actor-search-btn">' +
+                    '<div class="search__actor-icon">🎭</div>' +
+                    '<div class="search__actor-text">Поиск по актёру</div>' +
+                '</div>');
+
+                actorBtn.on('hover:enter', function() {
+                    showActorSearch();
+                });
+
+                // Добавляем если еще нет
+                if (!$('.search__actor-btn').length) {
+                    searchPanel.after(actorBtn);
+                }
+            }
+        }, 300);
     }
 
-    function showLoadingPopup(title, year) {
-        var popup = createPopup(title, year, '🔄 Загрузка с TMDB...', '');
-        positionPopup(popup);
-        $('body').append(popup);
-    }
+    function showActorSearch() {
+        Lampa.Input.edit({
+            title: '🔍 Введите имя актёра',
+            value: '',
+            onEnter: async function(value) {
+                if (value.length < 2) {
+                    Lampa.Noty.show('Введите минимум 2 символа');
+                    return;
+                }
 
-    function showTmdbPopup(data, card) {
-        $('.tmdb-hover-info').remove();
-        
-        var title = data.title || data.name;
-        var year = new Date(data.release_date).getFullYear();
-        var overview = data.overview || 'Описание отсутствует';
-        var rating = data.vote_average ? Math.round(data.vote_average * 10) : '?';
-        var genres = data.genres ? data.genres.map(g => g.name).join(', ') : '';
-        var director = data.credits?.crew?.find(c => c.job === 'Director')?.name || '';
+                // Показываем индикатор загрузки
+                Lampa.Noty.show('🔍 Поиск актёра...');
 
-        var popup = createPopup(
-            title, 
-            year, 
-            `${rating}/10 • ${genres}`,
-            overview,
-            director
-        );
-        
-        positionPopup(popup, card);
-        $('body').append(popup);
-    }
-
-    function showFallbackPopup(title, year) {
-        $('.tmdb-hover-info').remove();
-        var popup = createPopup(title, year, 'Информация недоступна', 'Попробуйте позже');
-        positionPopup(popup);
-        $('body').append(popup);
-    }
-
-    function createPopup(title, year, subtitle, description, director = '') {
-        return $('<div class="tmdb-hover-info">' +
-            `<div class="tmdb__header">${title} <span class="year">(${year})</span></div>` +
-            `<div class="tmdb__subtitle">${subtitle}</div>` +
-            (director ? `<div class="tmdb__director">Режиссер: ${director}</div>` : '') +
-            `<div class="tmdb__plot">${description}</div>` +
-        '</div>');
-    }
-
-    function positionPopup(popup, card = null) {
-        popup.css({
-            position: 'fixed',
-            zIndex: 10000,
-            left: '10px',
-            right: '10px',
-            maxWidth: '400px',
-            margin: '0 auto'
+                try {
+                    var actors = await searchActors(value);
+                    showActorsList(actors);
+                } catch(e) {
+                    Lampa.Noty.show('Ошибка поиска. Проверьте интернет.');
+                }
+            },
+            onCancel: function() {}
         });
+    }
+
+    async function searchActors(query) {
+        var url = `https://api.themoviedb.org/3/search/person?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=ru-RU`;
         
-        if (card) {
-            var rect = card.getBoundingClientRect();
-            popup.css({
-                left: (rect.right + 15) + 'px',
-                top: rect.top + 'px',
-                maxWidth: '350px'
+        var response = await fetch(url);
+        var data = await response.json();
+        
+        return data.results.slice(0, 20); // Топ 20 актёров
+    }
+
+    function showActorsList(actors) {
+        var items = [{
+            title: '🎭 Найдено актёров: ' + actors.length,
+            separator: true
+        }];
+
+        actors.forEach(function(actor) {
+            var moviesCount = actor.known_for ? actor.known_for.length : 0;
+            
+            items.push({
+                title: `🎬 ${actor.name}`,
+                subtitle: `${moviesCount} фильмов • ${actor.known_for_department}`,
+                img: `https://image.tmdb.org/t/p/w200${actor.profile_path}`,
+                onSelect: function() {
+                    showActorMovies(actor);
+                }
             });
-        }
-    }
+        });
 
-    function hideTmdbInfo() {
-        $('.tmdb-hover-info').fadeOut(300, function() {
-            $(this).remove();
+        Lampa.Select.show({
+            title: '🎭 Выберите актёра',
+            items: items,
+            onBack: function() {
+                addActorSearchOption();
+            }
         });
     }
 
-    // Красивые стили
-    $('<style id="tmdb-hover-style">').text(`
-        .tmdb-hover-info {
-            background: linear-gradient(135deg, #1e1e2e 0%, #2a2a3e 100%);
-            backdrop-filter: blur(20px);
+    async function showActorMovies(actor) {
+        Lampa.Noty.show(`🎬 Фильмы ${actor.name}...`);
+
+        try {
+            // Получаем фильмы актёра
+            var moviesUrl = `https://api.themoviedb.org/3/person/${actor.id}/movie_credits?api_key=${TMDB_API_KEY}&language=ru-RU`;
+            var moviesResp = await fetch(moviesUrl);
+            var moviesData = await moviesResp.json();
+            
+            var items = [];
+            moviesData.cast.slice(0, 50).forEach(function(movie) {
+                items.push({
+                    title: movie.title,
+                    subtitle: new Date(movie.release_date).getFullYear(),
+                    descr: movie.character,
+                    img: `https://image.tmdb.org/t/p/w300${movie.poster_path}`,
+                    onSelect: function() {
+                        openMovieInLampa(movie);
+                    }
+                });
+            });
+
+            Lampa.Select.show({
+                title: `🎬 Фильмы ${actor.name}`,
+                items: items,
+                onBack: function() {
+                    showActorsList([actor]);
+                }
+            });
+        } catch(e) {
+            Lampa.Noty.show('Ошибка загрузки фильмов');
+        }
+    }
+
+    function openMovieInLampa(movie) {
+        // Открываем стандартный поиск Lampa по названию
+        Lampa.Search.start({
+            query: movie.title
+        });
+    }
+
+    // Стили
+    $('<style id="actor-search-style">').text(`
+        .search__actor-btn {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            background: #1a1a1a;
             border: 1px solid #00ff41;
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 20px 60px rgba(0,255,65,0.2);
-            font-family: -apple-system, Arial, sans-serif;
-            animation: slideIn 0.3s ease-out;
+            border-radius: 8px;
+            margin: 8px 0;
+            cursor: pointer;
         }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .search__actor-btn.focus, .search__actor-btn.hover {
+            box-shadow: 0 0 0 3px #00ff00 !important;
+            background: #00ff41 !important;
+            color: #000 !important;
         }
-        .tmdb__header {
-            font-size: 18px;
-            font-weight: 700;
-            color: #ffffff;
-            margin-bottom: 8px;
+        .search__actor-icon {
+            font-size: 20px;
+            margin-right: 10px;
         }
-        .tmdb__header .year {
-            color: #00ff41;
-            font-weight: 400;
-            font-size: 16px;
-        }
-        .tmdb__subtitle {
-            color: #00ff88;
-            font-size: 14px;
-            margin-bottom: 8px;
+        .search__actor-text {
+            font-size: 15px;
             font-weight: 500;
         }
-        .tmdb__director {
-            color: #88ff88;
-            font-size: 13px;
-            margin-bottom: 12px;
-            font-style: italic;
-        }
-        .tmdb__plot {
-            color: #d1d5db;
-            font-size: 14px;
-            line-height: 1.5;
-            max-height: 140px;
-            overflow: hidden;
+        .actor-search-selector.focus, .actor-search-selector.hover {
+            box-shadow: 0 0 0 3px #00ff00 !important;
+            border-radius: 6px !important;
         }
     `).appendTo('head');
 
     if (window.appready) start();
-    else Lampa.Listener.follow('app', function (e) {
+    else Lampa.Listener.follow('app', function(e) {
         if (e.type == 'ready') start();
     });
 })();
