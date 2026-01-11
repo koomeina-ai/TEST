@@ -1,150 +1,132 @@
 (function () {
     window.plugin_plugins_manager = {
         name: 'Менеджер плагинов',
-        version: '1.0.0',
-        description: 'Включать/выключать плагины из меню'
+        version: '1.0.1',
+        description: 'Включать/выключать плагины'
     };
 
     let pluginsList = [];
 
     function start() {
-        // Добавляем в настройки раздел "Плагины"
+        // ✅ ИСПРАВЛЕНО: правильное добавление в интерфейс
         Lampa.Settings.listener.follow('open', function (e) {
-            if (e.name == 'plugins_manager') {
-                createPluginsPanel(e);
-            }
-            else if (e.name == 'interface') {
-                // Добавляем кнопку в основной интерфейс
-                var managerItem = $('<div class="settings-param selector plugin-manager-selector">' +
+            if (e.name == 'interface') {
+                var managerItem = $('<div class="settings-param selector plugin-manager-selector" data-name="plugins_manager">' +
                     '<div class="settings-param__name">🛠️ Менеджер плагинов</div>' +
-                    '<div class="settings-param__value">Управление плагинами</div>' +
+                    '<div class="settings-param__value">Управление</div>' +
                     '<div class="settings-param__descr">Вкл/выкл плагины</div>' +
                 '</div>');
 
                 managerItem.on('hover:enter', function () {
-                    Lampa.Settings.open('plugins_manager');
+                    showPluginsManager();
                 });
 
-                e.body.append(managerItem);
+                // Добавляем ПОСЛЕ существующего элемента
+                e.body.find('[data-name="interface_size"]').after(managerItem);
             }
         });
 
-        // Создаем панель управления плагинами
-        function createPluginsPanel(e) {
-            e.body.empty();
-            
-            // Заголовок
-            var title = $('<div class="settings-panel__title-text">Менеджер плагинов</div>');
-            e.body.append(title);
-
-            // Кнопка обновить список
-            var refreshBtn = $('<div class="settings-param selector plugin-manager-selector">' +
-                '<div class="settings-param__name">🔄 Обновить список</div>' +
-            '</div>');
-            refreshBtn.on('hover:enter', scanPlugins);
-            e.body.append(refreshBtn);
-
-            // Список плагинов
-            var list = $('<div class="plugins-list"></div>');
-            e.body.append(list);
-
-            scanPlugins();
-        }
-
-        // Сканируем все плагины
-        function scanPlugins() {
-            pluginsList = [];
-            
-            // Ищем все плагины в window
-            for (let key in window) {
-                if (key.indexOf('plugin_') === 0 && window[key] && window[key].name) {
-                    let plugin = window[key];
-                    let enabled = Lampa.Storage.get('plugin_' + key, 'true') !== 'false';
-                    
-                    pluginsList.push({
-                        name: plugin.name || key,
-                        key: key,
-                        enabled: enabled,
-                        version: plugin.version || '1.0',
-                        desc: plugin.description || 'Без описания'
-                    });
+        // ✅ НОВАЯ ФУНКЦИЯ: показ менеджера
+        function showPluginsManager() {
+            Lampa.Select.show({
+                title: '🛠️ Менеджер плагинов',
+                items: [
+                    {
+                        title: '🔄 Обновить список',
+                        onSelect: scanPlugins
+                    }
+                ],
+                onBack: function() {
+                    // Возврат в настройки
                 }
-            }
-
-            renderPluginsList();
+            });
+            
+            // Сканируем сразу
+            setTimeout(scanPlugins, 100);
         }
+    }
 
-        // Отрисовываем список
-        function renderPluginsList() {
-            var list = $('.plugins-list');
-            list.empty();
-
-            pluginsList.forEach(function(plugin, index) {
-                var status = plugin.enabled ? '🟢 Включен' : '🔴 Выключен';
-                var item = $('<div class="settings-param selector plugin-manager-selector">' +
-                    '<div class="settings-param__name">' + plugin.name + ' v' + plugin.version + '</div>' +
-                    '<div class="settings-param__value">' + status + '</div>' +
-                    '<div class="settings-param__descr">' + plugin.desc + '</div>' +
-                '</div>');
-
-                item.on('hover:enter', function() {
-                    togglePlugin(plugin.key, !plugin.enabled);
+    // Сканируем плагины
+    function scanPlugins() {
+        pluginsList = [];
+        
+        for (let key in window) {
+            if (key.indexOf('plugin_') === 0 && window[key] && window[key].name) {
+                let plugin = window[key];
+                let enabled = Lampa.Storage.get('plugin_' + key.replace('plugin_', ''), 'true') !== 'false';
+                
+                pluginsList.push({
+                    name: plugin.name || key,
+                    key: key,
+                    enabled: enabled,
+                    version: plugin.version || '1.0',
+                    desc: plugin.description || 'Без описания'
                 });
-
-                list.append(item);
-            });
+            }
         }
 
-        // Включить/выключить плагин
-        function togglePlugin(pluginKey, enable) {
-            Lampa.Storage.set('plugin_' + pluginKey, enable);
-            
-            // Перезагружаем плагин если нужно
-            if (window[pluginKey] && window[pluginKey].toggle) {
-                window[pluginKey].toggle(enable);
-            }
+        showPluginsList();
+    }
 
-            // Обновляем список
-            scanPlugins();
+    // Показываем список плагинов
+    function showPluginsList() {
+        var items = [
+            { separator: true, title: '📋 Установленные плагины' }
+        ];
 
-            // Показываем уведомление
-            var html = $('<div class="simple-notify">' +
-                '<div class="simple-notify__title">' + (enable ? 'Включен' : 'Выключен') + '</div>' +
-                '<div class="simple-notify__text">' + window[pluginKey]?.name + '</div>' +
-            '</div>');
-            
-            Lampa.Noty.show(html, {
-                time: 3000,
-                backdrop: true
-            });
-        }
-
-        // Зеленое выделение
-        var style = $('<style id="plugin-manager-style"></style>').appendTo('head');
-        style.text(`
-            .plugin-manager-selector.focus, .plugin-manager-selector.hover {
-                box-shadow: 0 0 0 3px #00ff00 !important;
-                border-radius: 6px !important;
-            }
-            .plugin-manager-selector.focus .settings-param__name,
-            .plugin-manager-selector.hover .settings-param__name {
-                color: #ffffff !important;
-            }
-        `);
-
-        // Добавляем в главное меню настроек
-        Lampa.Settings.main({
-            name: 'plugins_manager',
-            title: '🛠️ Плагины',
-            items: [{
-                title: 'Управление плагинами',
-                html: 'Включать/выключать плагины',
-                onHover: function() {
-                    Lampa.Settings.open('plugins_manager');
+        pluginsList.forEach(function(plugin) {
+            var status = plugin.enabled ? '🟢 Включен' : '🔴 Выключен';
+            items.push({
+                title: plugin.name + ' v' + plugin.version,
+                subtitle: status,
+                descr: plugin.desc.substring(0, 50) + '...',
+                selected: plugin.enabled,
+                onSelect: function() {
+                    togglePlugin(plugin.key, !plugin.enabled);
                 }
-            }]
+            });
+        });
+
+        Lampa.Select.show({
+            title: '🔧 Плагины (' + pluginsList.length + ')',
+            items: items,
+            onBack: function() {
+                showPluginsManager();
+            }
         });
     }
+
+    // Переключение плагина
+    function togglePlugin(pluginKey, enable) {
+        var pluginName = window[pluginKey]?.name || pluginKey;
+        Lampa.Storage.set('plugin_' + pluginKey.replace('plugin_', ''), enable);
+        
+        // Уведомление
+        Lampa.Noty.show({
+            title: enable ? '🟢 Включен' : '🔴 Выключен',
+            body: pluginName,
+            time: 2000
+        });
+        
+        // Обновляем список
+        setTimeout(scanPlugins, 500);
+    }
+
+    // Стили
+    setTimeout(function() {
+        $('<style id="plugin-manager-style">')
+            .text(`
+                .plugin-manager-selector.selector.focus,
+                .plugin-manager-selector.selector.hover {
+                    box-shadow: 0 0 0 3px #00ff00 !important;
+                    border-radius: 6px !important;
+                }
+                .plugin-manager-selector.selector.focus .settings-param__name,
+                .plugin-manager-selector.hover .settings-param__name {
+                    color: #ffffff !important;
+                }
+            `).appendTo('head');
+    }, 100);
 
     if (window.appready) start();
     else Lampa.Listener.follow('app', function (e) {
