@@ -1,8 +1,8 @@
 (function () {
     window.plugin_font_size = {
         name: 'Размер шрифта',
-        version: '1.4.0',
-        description: 'Исправленная версия с принудительным применением шрифтов'
+        version: '1.4.1',
+        description: 'Отображение активных значений размера и шрифта'
     };
 
     function start() {
@@ -10,8 +10,8 @@
             if (e.name == 'interface') {
                 var item = $('<div class="settings-param selector font-size-selector" data-type="range" data-name="font_size_value">' +
                     '<div class="settings-param__name">Размер шрифта</div>' +
-                    '<div class="settings-param__value"></div>' +
-                    '<div class="settings-param__descr">8-32px (стандарт 16px)</div>' +
+                    '<div class="settings-param__value">16px</div>' +
+                    '<div class="settings-param__descr">8-32px</div>' +
                 '</div>');
 
                 var fontSizes = [];
@@ -25,6 +25,7 @@
                         items: fontSizes,
                         onSelect: function (a) {
                             Lampa.Storage.set('font_size_value', a.value);
+                            updateDisplays();
                             applyFont();
                             Lampa.Settings.update();
                         }
@@ -53,7 +54,7 @@
                         ],
                         onSelect: function (a) {
                             Lampa.Storage.set('font_family', a.value);
-                            updateFontDisplay();
+                            updateDisplays();
                             applyFont();
                             Lampa.Settings.update();
                         }
@@ -61,19 +62,29 @@
                 });
 
                 e.body.find('[data-name="interface_size"]').after(item).after(fontItem);
+                
+                // ✅ ИНИЦИАЛИЗИРУЕМ ПОКАЗАНИЕ АКТИВНЫХ ЗНАЧЕНИЙ
                 updateDisplays();
             }
         });
 
-        // КЛЮЧЕВАЯ ИСПРАВЛЕНИЕ: мутируем корневой элемент
+        function updateDisplays() {
+            var size = Lampa.Storage.get('font_size_value', '16');
+            var family = Lampa.Storage.get('font_family', 'Arial, sans-serif');
+            
+            // ✅ ПОКАЗЫВАЕМ АКТИВНЫЙ РАЗМЕР ШРИФТА
+            $('.settings-param[data-name="font_size_value"] .settings-param__value').text(size + 'px');
+            
+            // ✅ ПОКАЗЫВАЕМ АКТИВНЫЙ ШРИФТ
+            $('.settings-param[data-name="font_family"] .settings-param__value').text(family.split(',')[0].replace(/"/g, ''));
+        }
+
         function applyFont() {
             var size = Lampa.Storage.get('font_size_value', '16');
             var family = Lampa.Storage.get('font_family', 'Arial, sans-serif');
             
-            // Удаляем старые стили
             $('#plugin-font-size-style, #font-override-all').remove();
             
-            // Создаем новый стиль с !important и широким покрытием
             $('<style id="font-override-all">').text(`
                 *:not(.native-font *) {
                     font-family: ${family} !important;
@@ -93,32 +104,26 @@
                     box-shadow: 0 0 0 3px #00ff00 !important;
                     border-radius: 6px !important;
                 }
+                .font-size-selector.focus .settings-param__name,
+                .font-size-selector.hover .settings-param__name {
+                    color: #ffffff !important;
+                }
             `).appendTo('head');
 
-            // ПРИНУДИТЕЛЬНО перерисовываем интерфейс
             if(Lampa.Activity.active()) {
                 Lampa.Activity.active().render();
             }
-            
-            // Обновляем значения в настройках
+        }
+
+        // Применяем при загрузке и обновляем отображение
+        setTimeout(function() {
+            applyFont();
             updateDisplays();
-        }
-
-        function updateDisplays() {
-            var size = Lampa.Storage.get('font_size_value', '16');
-            var family = Lampa.Storage.get('font_family', 'Arial, sans-serif');
-            
-            $('.settings-param[data-name="font_size_value"] .settings-param__value').text(size + 'px');
-            $('.settings-param[data-name="font_family"] .settings-param__value').text(family.split(',')[0].replace(/"/g, ''));
-        }
-
-        function updateFontDisplay() {
+        }, 1000);
+        setTimeout(function() {
+            applyFont();
             updateDisplays();
-        }
-
-        // Применяем при загрузке
-        setTimeout(applyFont, 1000);
-        setTimeout(applyFont, 3000);
+        }, 3000);
     }
 
     if (window.appready) start();
