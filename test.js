@@ -1,56 +1,41 @@
 (function () {
     window.plugin_font_size = {
-        name: 'Размер шрифта Stable',
-        version: '1.3.0',
-        description: 'Изменение размера текста от 8 до 36px без ошибок меню'
+        name: 'Размер шрифта',
+        version: '1.0.0',
+        description: 'Позволяет изменять размер шрифта интерфейса'
     };
 
     function start() {
-        // Оборачиваем код в try...catch для отлова возможных ошибок
-        try {
-            Lampa.Settings.listener.follow('open', function (e) {
-                if (e.name == 'interface') {
-                    var current = Lampa.Storage.get('font_size_value', '16');
-                    var item = $('<div class="settings-param selector" data-name="font_size_value">' +
-                        '<div class="settings-param__name">Размер шрифта</div>' +
-                        '<div class="settings-param__value">' + current + 'px</div>' +
-                        '<div class="settings-param__descr">Выберите размер текста (от 8 до 36px)</div>' +
-                    '</div>');
+        // Добавляем настройки в раздел "Интерфейс"
+        Lampa.Settings.listener.follow('open', function (e) {
+            if (e.name == 'interface') {
+                var item = $('<div class="settings-param selector" data-type="range" data-name="font_size_value" data-min="10" data-max="30" data-step="1">' +
+                    '<div class="settings-param__name">Размер шрифта</div>' +
+                    '<div class="settings-param__value"></div>' +
+                    '<div class="settings-param__descr">Установите комфортный размер текста (стандарт 16px)</div>' +
+                '</div>');
 
-                    item.on('hover:enter', function () {
-                        var items = [];
-                        for (var i = 8; i <= 36; i++) {
-                            items.push({
-                                title: i + 'px',
-                                value: i,
-                                selected: i == current
-                            });
+                item.on('hover:enter', function () {
+                    Lampa.Select.show({
+                        title: 'Размер шрифта',
+                        items: [
+                            {title: 'Мелкий (14px)', value: 14},
+                            {title: 'Обычный (16px)', value: 16},
+                            {title: 'Средний (18px)', value: 18},
+                            {title: 'Крупный (20px)', value: 20},
+                            {title: 'Очень крупный (24px)', value: 24}
+                        ],
+                        onSelect: function (a) {
+                            Lampa.Storage.set('font_size_value', a.value);
+                            applySize(a.value);
+                            Lampa.Settings.update();
                         }
-
-                        Lampa.Select.show({
-                            title: 'Размер шрифта',
-                            items: items,
-                            onSelect: function (a) {
-                                Lampa.Storage.set('font_size_value', a.value);
-                                applySize(a.value);
-                                item.find('.settings-param__value').text(a.value + 'px');
-                                Lampa.Controller.back(); // Закрываем меню выбора
-                            },
-                            onBack: function(){
-                                Lampa.Controller.back(); // Возврат по кнопке "назад"
-                            }
-                        });
                     });
+                });
 
-                    e.body.find('[data-name="interface_size"]').after(item);
-                }
-            });
-        } catch (e) {
-            console.error('Plugin Font Size error:', e);
-            // Дополнительно можно показать ошибку в интерфейсе Lampa
-            Lampa.Noty.show('Ошибка плагина "Размер шрифта": ' + e.message);
-        }
-
+                e.body.find('[data-name="interface_size"]').after(item);
+            }
+        });
 
         function applySize(size) {
             var val = size || Lampa.Storage.get('font_size_value', '16');
@@ -58,6 +43,7 @@
             if (!style.length) {
                 style = $('<style id="plugin-font-size-style"></style>').appendTo('head');
             }
+            // Применяем ко всему интерфейсу
             style.text('html, body { font-size: ' + val + 'px !important; }');
         }
 
