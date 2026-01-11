@@ -1,8 +1,8 @@
 (function () {
     window.plugin_font_size = {
         name: 'Размер шрифта',
-        version: '1.1.0',
-        description: 'Позволяет изменять размер шрифта интерфейса с выбором модели'
+        version: '1.2.0',
+        description: 'Позволяет изменять размер и шрифт интерфейса'
     };
 
     function start() {
@@ -30,58 +30,70 @@
                         items: fontSizes,
                         onSelect: function (a) {
                             Lampa.Storage.set('font_size_value', a.value);
-                            Lampa.Storage.set('font_size_model', 'custom');
                             applySize(a.value);
                             Lampa.Settings.update();
                         }
                     });
                 });
 
-                // Добавляем выбор модели шрифта
-                var modelItem = $('<div class="settings-param selector font-size-selector" data-name="font_size_model">' +
-                    '<div class="settings-param__name">Модель шрифта</div>' +
-                    '<div class="settings-param__value">Стандартная</div>' +
-                    '<div class="settings-param__descr">Выберите стиль шрифта</div>' +
+                // Добавляем выбор шрифта
+                var fontItem = $('<div class="settings-param selector font-size-selector" data-name="font_family">' +
+                    '<div class="settings-param__name">Шрифт</div>' +
+                    '<div class="settings-param__value">Arial</div>' +
+                    '<div class="settings-param__descr">Выберите шрифт интерфейса</div>' +
                 '</div>');
 
-                modelItem.on('hover:enter', function () {
-                    var currentModel = Lampa.Storage.get('font_size_model', 'standard');
+                fontItem.on('hover:enter', function () {
+                    var currentFont = Lampa.Storage.get('font_family', 'Arial');
                     Lampa.Select.show({
-                        title: 'Модель шрифта',
+                        title: 'Выбор шрифта',
                         items: [
-                            {title: 'Стандартная', value: 'standard'},
-                            {title: 'Компактная', value: 'compact'},
-                            {title: 'Широкая', value: 'wide'},
-                            {title: 'Моноширинная', value: 'monospace'}
+                            {title: 'Arial', value: 'Arial, sans-serif'},
+                            {title: 'Helvetica', value: '"Helvetica Neue", Helvetica, Arial, sans-serif'},
+                            {title: 'Times New Roman', value: '"Times New Roman", Times, serif'},
+                            {title: 'Georgia', value: 'Georgia, serif'},
+                            {title: 'Verdana', value: 'Verdana, Geneva, sans-serif'},
+                            {title: 'Tahoma', value: 'Tahoma, Geneva, sans-serif'},
+                            {title: 'Trebuchet MS', value: '"Trebuchet MS", Helvetica, sans-serif'},
+                            {title: 'Impact', value: 'Impact, Haettenschweiler, sans-serif'},
+                            {title: 'Courier New', value: '"Courier New", Courier, monospace'},
+                            {title: 'Lucida Console', value: '"Lucida Console", Monaco, monospace'},
+                            {title: 'Segoe UI', value: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'},
+                            {title: 'Roboto', value: 'Roboto, "Helvetica Neue", sans-serif'}
                         ],
                         onSelect: function (a) {
-                            Lampa.Storage.set('font_size_model', a.value);
+                            Lampa.Storage.set('font_family', a.value);
+                            updateFontValueDisplay();
                             applySize();
                             Lampa.Settings.update();
                         }
                     });
                 });
 
-                e.body.find('[data-name="interface_size"]').after(item).after(modelItem);
+                e.body.find('[data-name="interface_size"]').after(item).after(fontItem);
+                
+                // Обновляем отображение текущего шрифта
+                updateFontValueDisplay();
             }
         });
 
+        function updateFontValueDisplay() {
+            var fontFamily = Lampa.Storage.get('font_family', 'Arial, sans-serif');
+            var fontNames = fontFamily.split(',')[0].replace(/"/g, '');
+            $('.settings-param[data-name="font_family"] .settings-param__value').text(fontNames);
+        }
+
         function applySize(size) {
             var val = size || Lampa.Storage.get('font_size_value', '16');
-            var model = Lampa.Storage.get('font_size_model', 'standard');
+            var fontFamily = Lampa.Storage.get('font_family', 'Arial, sans-serif');
             
             var style = $('#plugin-font-size-style');
             if (!style.length) {
                 style = $('<style id="plugin-font-size-style"></style>').appendTo('head');
             }
 
-            var fontFamily = model == 'compact' ? 'Arial Narrow, sans-serif' :
-                           model == 'wide' ? '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif' :
-                           model == 'monospace' ? '"Courier New", Consolas, monospace' :
-                           'system-ui, -apple-system, sans-serif';
-            
             style.text(`
-                html, body { 
+                html, body, .selector, .settings-param { 
                     font-size: ${val}px !important;
                     font-family: ${fontFamily} !important;
                 }
