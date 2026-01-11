@@ -1,8 +1,8 @@
 (function () {
     window.plugin_font_size = {
         name: 'Размер шрифта',
-        version: '1.4.2',
-        description: 'Исправлена ошибка render() + актуальные значения'
+        version: '1.5.0',
+        description: 'Необычные и экспериментальные шрифты'
     };
 
     function start() {
@@ -35,22 +35,41 @@
                 var fontItem = $('<div class="settings-param selector font-size-selector" data-name="font_family">' +
                     '<div class="settings-param__name">Шрифт</div>' +
                     '<div class="settings-param__value">Arial</div>' +
-                    '<div class="settings-param__descr">Выберите шрифт</div>' +
+                    '<div class="settings-param__descr">Необычные шрифты</div>' +
                 '</div>');
 
                 fontItem.on('hover:enter', function () {
                     Lampa.Select.show({
-                        title: 'Шрифты',
+                        title: '🚀 Экспериментальные шрифты',
                         items: [
+                            // КЛАССИКА
                             {title: 'Arial', value: 'Arial, sans-serif'},
                             {title: 'Verdana', value: 'Verdana, Geneva, sans-serif'},
                             {title: 'Tahoma', value: 'Tahoma, Geneva, sans-serif'},
                             {title: 'Times', value: '"Times New Roman", serif'},
                             {title: 'Georgia', value: 'Georgia, serif'},
                             {title: 'Courier', value: '"Courier New", monospace'},
-                            {title: 'Segoe UI', value: '"Segoe UI", sans-serif'},
-                            {title: 'Trebuchet', value: '"Trebuchet MS", sans-serif'},
-                            {title: 'Impact', value: 'Impact, sans-serif'}
+                            
+                            // 🔥 НЕОБЫЧНЫЕ + ЭКСПЕРИМЕНТАЛЬНЫЕ
+                            {title: '✨ Comic Sans MS', value: '"Comic Sans MS", cursive'},
+                            {title: '💎 Papyrus', value: 'Papyrus, fantasy'},
+                            {title: '🎪 Wingdings', value: 'Wingdings, symbols'},
+                            {title: '🕶️ Webdings', value: 'Webdings'},
+                            {title: '🌈 Impact', value: 'Impact, Haettenschweiler, sans-serif'},
+                            {title: '📜 Lucida Handwriting', value: '"Lucida Handwriting", cursive'},
+                            {title: '🎨 Brush Script', value: '"Brush Script MT", cursive'},
+                            {title: '🌀 Symbol', value: 'Symbol'},
+                            {title: '🔤 Fixedsys', value: 'Fixedsys, monospace'},
+                            {title: '💿 MS Gothic', value: '"MS Gothic", monospace'},
+                            {title: '🇯🇵 MS PGothic', value: '"MS PGothic", sans-serif'},
+                            {title: '🎎 Yu Gothic', value: '"Yu Gothic", sans-serif'},
+                            {title: '❄️ Segoe Script', value: '"Segoe Script", cursive'},
+                            {title: '🌊 Segoe Print', value: '"Segoe Print", cursive'},
+                            {title: '🖥️ Consolas', value: 'Consolas, monospace'},
+                            {title: '💻 Fira Code', value: '"Fira Code", monospace'},
+                            {title: '🔥 Orbitron', value: 'Orbitron, monospace'},
+                            {title: '⭐ Rajdhani', value: 'Rajdhani, sans-serif'},
+                            {title: '⚡ Bungee', value: 'Bungee, sans-serif'}
                         ],
                         onSelect: function (a) {
                             Lampa.Storage.set('font_family', a.value);
@@ -70,7 +89,6 @@
             var size = Lampa.Storage.get('font_size_value', '16');
             var family = Lampa.Storage.get('font_family', 'Arial, sans-serif');
             
-            // ✅ Безопасное обновление значений
             var sizeEl = $('.settings-param[data-name="font_size_value"] .settings-param__value');
             var fontEl = $('.settings-param[data-name="font_family"] .settings-param__value');
             
@@ -82,7 +100,6 @@
             var size = Lampa.Storage.get('font_size_value', '16');
             var family = Lampa.Storage.get('font_family', 'Arial, sans-serif');
             
-            // ✅ УДАЛЕН вызов Lampa.Activity.active().render()
             $('#plugin-font-size-style, #font-override-all').remove();
             
             $('<style id="font-override-all">').text(`
@@ -103,14 +120,9 @@
                 .font-size-selector.hover .settings-param__name {
                     color: #ffffff !important;
                 }
-                /* Исключения для нативных элементов */
-                input, textarea, select, canvas {
-                    font-size: ${size}px !important;
-                }
             `).appendTo('head');
         }
 
-        // ✅ Множественные применения для надежности
         setTimeout(applyFont, 500);
         setTimeout(applyFont, 1500);
         setTimeout(applyFont, 3000);
