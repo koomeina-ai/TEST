@@ -1,132 +1,180 @@
 (function () {
-    window.plugin_movie_hover_info = {
-        name: 'Инфо при наведении',
-        version: '1.1.0',
-        description: 'Описание фильма при hover на карточку'
+    window.plugin_tmdb_hover = {
+        name: 'TMDB Инфо',
+        version: '1.2.0',
+        description: 'Реальные данные TMDB при наведении'
     };
 
+    // БЕСПЛАТНЫЙ TMDB API ключ (public)
+    const TMDB_API_KEY = 'f2c4932089dbdce7a6ccf0c21087eab6';
+    let cache = {};
+    let currentRequest = null;
+
     function start() {
-        // Захватываем события hover на карточках фильмов
+        // Захват hover событий на карточках
         $(document).on('mouseenter', '.full-start__item, .item, .movie, .card, .full-block__item', function(e) {
-            showMovieDescription(this);
+            showTmdbInfo(this);
         }).on('mouseleave', '.full-start__item, .item, .movie, .card, .full-block__item', function() {
-            hideMovieDescription();
+            hideTmdbInfo();
         });
     }
 
-    function showMovieDescription(card) {
-        // Извлекаем информацию о фильме
-        var titleEl = $(card).find('.item__name, .name, .title, h3, [class*="title"], [class*="name"]');
-        var yearEl = $(card).find('.item__year, .year, [class*="year"]');
-        var genresEl = $(card).find('.item__genres, .genres, [class*="genre"]');
-        
-        var title = titleEl.length ? titleEl.first().text().trim() : 'Неизвестный фильм';
-        var year = yearEl.length ? yearEl.first().text().trim() : '';
-        var genres = genresEl.length ? genresEl.first().text().trim() : '';
+    async function showTmdbInfo(card) {
+        var title = $(card).find('.item__name, .name, .title, h3').first().text().trim();
+        var year = $(card).find('.item__year, .year').first().text().match(/\d{4}/)?.[0];
 
-        // Создаем попап
-        var popup = createPopup(title, year, genres);
+        if (!title || cache[title + year]) return;
+
+        // Показываем "Загрузка..."
+        showLoadingPopup(title, year);
         
-        // Позиционируем справа от карточки
-        var rect = card.getBoundingClientRect();
-        popup.css({
-            left: (rect.right + 15) + 'px',
-            top: rect.top + 'px',
-            position: 'fixed',
-            zIndex: 10000
-        });
+        try {
+            // Поиск по TMDB
+            var tmdbData = await searchTmdb(title, year);
+            cache[title + year] = tmdbData;
+            showTmdbPopup(tmdbData, card);
+        } catch(e) {
+            showFallbackPopup(title, year);
+        }
+    }
+
+    async function searchTmdb(title, year) {
+        // Сначала поиск фильма
+        var searchUrl = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(title)}&year=${year}&language=ru-RU`;
         
+        var searchResp = await fetch(searchUrl);
+        var searchData = await searchResp.json();
+        
+        if (searchData.results && searchData.results[0]) {
+            var movieId = searchData.results[0].id;
+            
+            // Получаем полную информацию
+            var detailsUrl = `https://api.themoviedb.org/3/movie/${movieId}?api_key=${TMDB_API_KEY}&language=ru-RU&append_to_response=credits`;
+            var detailsResp = await fetch(detailsUrl);
+            return await detailsResp.json();
+        }
+        
+        throw new Error('Фильм не найден');
+    }
+
+    function showLoadingPopup(title, year) {
+        var popup = createPopup(title, year, '🔄 Загрузка с TMDB...', '');
+        positionPopup(popup);
         $('body').append(popup);
     }
 
-    function createPopup(title, year, genres) {
-        // Генерируем описание по названию
-        var description = generateSmartDescription(title);
+    function showTmdbPopup(data, card) {
+        $('.tmdb-hover-info').remove();
         
-        return $('<div class="movie-hover-info">' +
-            '<div class="hover-info__header">' + title + (year ? ' <span>(' + year + ')</span>' : '') + '</div>' +
-            '<div class="hover-info__genres">' + (genres || 'Жанры не указаны') + '</div>' +
-            '<div class="hover-info__plot">' + description + '</div>' +
+        var title = data.title || data.name;
+        var year = new Date(data.release_date).getFullYear();
+        var overview = data.overview || 'Описание отсутствует';
+        var rating = data.vote_average ? Math.round(data.vote_average * 10) : '?';
+        var genres = data.genres ? data.genres.map(g => g.name).join(', ') : '';
+        var director = data.credits?.crew?.find(c => c.job === 'Director')?.name || '';
+
+        var popup = createPopup(
+            title, 
+            year, 
+            `${rating}/10 • ${genres}`,
+            overview,
+            director
+        );
+        
+        positionPopup(popup, card);
+        $('body').append(popup);
+    }
+
+    function showFallbackPopup(title, year) {
+        $('.tmdb-hover-info').remove();
+        var popup = createPopup(title, year, 'Информация недоступна', 'Попробуйте позже');
+        positionPopup(popup);
+        $('body').append(popup);
+    }
+
+    function createPopup(title, year, subtitle, description, director = '') {
+        return $('<div class="tmdb-hover-info">' +
+            `<div class="tmdb__header">${title} <span class="year">(${year})</span></div>` +
+            `<div class="tmdb__subtitle">${subtitle}</div>` +
+            (director ? `<div class="tmdb__director">Режиссер: ${director}</div>` : '') +
+            `<div class="tmdb__plot">${description}</div>` +
         '</div>');
     }
 
-    function generateSmartDescription(title) {
-        title = title.toLowerCase();
+    function positionPopup(popup, card = null) {
+        popup.css({
+            position: 'fixed',
+            zIndex: 10000,
+            left: '10px',
+            right: '10px',
+            maxWidth: '400px',
+            margin: '0 auto'
+        });
         
-        // Умные описания по ключевым словам
-        if (title.includes('интерстеллар') || title.includes('interstellar')) {
-            return 'Космическая одиссея о спасении человечества через червоточину во времени и пространстве.';
+        if (card) {
+            var rect = card.getBoundingClientRect();
+            popup.css({
+                left: (rect.right + 15) + 'px',
+                top: rect.top + 'px',
+                maxWidth: '350px'
+            });
         }
-        if (title.includes('темный рыцарь') || title.includes('dark knight')) {
-            return 'Бэтмен против Джокера в эпической битве за Готэм.';
-        }
-        if (title.includes('форсаж') || title.includes('fast')) {
-            return 'Безумные гонки, братство и адреналин на максимум.';
-        }
-        if (title.includes('марвел') || title.includes('мстители')) {
-            return 'Эпическая битва супергероев против вселенского зла.';
-        }
-        if (title.includes('ужас') || title.includes('horror')) {
-            return 'Жуткая история, которая заставит вас бояться темноты.';
-        }
-        if (title.includes('комедия') || title.includes('comedy')) {
-            return 'Смешная история для отличного настроения.';
-        }
-        
-        // Общее описание
-        return 'Захватывающий фильм, который держит в напряжении до последней минуты.';
     }
 
-    function hideMovieDescription() {
-        $('.movie-hover-info').fadeOut(200, function() {
+    function hideTmdbInfo() {
+        $('.tmdb-hover-info').fadeOut(300, function() {
             $(this).remove();
         });
     }
 
     // Красивые стили
-    setTimeout(function() {
-        $('<style id="movie-hover-style">')
-            .text(`
-                .movie-hover-info {
-                    background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
-                    backdrop-filter: blur(15px);
-                    border: 1px solid #00ff00;
-                    border-radius: 12px;
-                    padding: 18px;
-                    max-width: 320px;
-                    min-width: 280px;
-                    box-shadow: 0 15px 40px rgba(0,255,0,0.15);
-                    font-family: Arial, sans-serif;
-                    font-size: 14px;
-                }
-                .hover-info__header {
-                    font-size: 16px;
-                    font-weight: bold;
-                    color: #ffffff;
-                    margin-bottom: 10px;
-                }
-                .hover-info__header span {
-                    color: #00ff00;
-                    font-weight: normal;
-                    font-size: 14px;
-                }
-                .hover-info__genres {
-                    color: #00ff88;
-                    font-size: 13px;
-                    margin-bottom: 12px;
-                    padding-bottom: 8px;
-                    border-bottom: 1px solid #333;
-                }
-                .hover-info__plot {
-                    color: #cccccc;
-                    line-height: 1.45;
-                    max-height: 120px;
-                    overflow: hidden;
-                }
-            `).appendTo('head');
-    }, 200);
+    $('<style id="tmdb-hover-style">').text(`
+        .tmdb-hover-info {
+            background: linear-gradient(135deg, #1e1e2e 0%, #2a2a3e 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid #00ff41;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0,255,65,0.2);
+            font-family: -apple-system, Arial, sans-serif;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .tmdb__header {
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+        .tmdb__header .year {
+            color: #00ff41;
+            font-weight: 400;
+            font-size: 16px;
+        }
+        .tmdb__subtitle {
+            color: #00ff88;
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .tmdb__director {
+            color: #88ff88;
+            font-size: 13px;
+            margin-bottom: 12px;
+            font-style: italic;
+        }
+        .tmdb__plot {
+            color: #d1d5db;
+            font-size: 14px;
+            line-height: 1.5;
+            max-height: 140px;
+            overflow: hidden;
+        }
+    `).appendTo('head');
 
-    // Запуск
     if (window.appready) start();
     else Lampa.Listener.follow('app', function (e) {
         if (e.type == 'ready') start();
