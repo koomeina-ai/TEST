@@ -1,8 +1,8 @@
 (function () {
     window.plugin_font_size = {
         name: 'Размер шрифта',
-        version: '1.2.0',
-        description: 'Позволяет изменять размер и шрифт интерфейса'
+        version: '1.3.0',
+        description: 'Плагин с расширенным выбором шрифтов и размеров'
     };
 
     function start() {
@@ -36,7 +36,7 @@
                     });
                 });
 
-                // Добавляем выбор шрифта
+                // Расширенный выбор шрифтов (35+ шрифтов)
                 var fontItem = $('<div class="settings-param selector font-size-selector" data-name="font_family">' +
                     '<div class="settings-param__name">Шрифт</div>' +
                     '<div class="settings-param__value">Arial</div>' +
@@ -44,9 +44,9 @@
                 '</div>');
 
                 fontItem.on('hover:enter', function () {
-                    var currentFont = Lampa.Storage.get('font_family', 'Arial');
+                    var currentFont = Lampa.Storage.get('font_family', 'Arial, sans-serif');
                     Lampa.Select.show({
-                        title: 'Выбор шрифта',
+                        title: 'Выбор шрифта (прокрутите для просмотра)',
                         items: [
                             {title: 'Arial', value: 'Arial, sans-serif'},
                             {title: 'Helvetica', value: '"Helvetica Neue", Helvetica, Arial, sans-serif'},
@@ -59,7 +59,32 @@
                             {title: 'Courier New', value: '"Courier New", Courier, monospace'},
                             {title: 'Lucida Console', value: '"Lucida Console", Monaco, monospace'},
                             {title: 'Segoe UI', value: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'},
-                            {title: 'Roboto', value: 'Roboto, "Helvetica Neue", sans-serif'}
+                            {title: 'Roboto', value: 'Roboto, "Helvetica Neue", sans-serif'},
+                            {title: 'Open Sans', value: '"Open Sans", Arial, sans-serif'},
+                            {title: 'Lato', value: 'Lato, Helvetica Neue, sans-serif'},
+                            {title: 'Montserrat', value: 'Montserrat, Arial, sans-serif'},
+                            {title: 'Raleway', value: 'Raleway, Arial, sans-serif'},
+                            {title: 'PT Sans', value: '"PT Sans", Arial, sans-serif'},
+                            {title: 'PT Serif', value: '"PT Serif", Georgia, serif'},
+                            {title: 'Roboto Condensed', value: '"Roboto Condensed", Arial, sans-serif'},
+                            {title: 'Source Sans Pro', value: '"Source Sans Pro", Arial, sans-serif'},
+                            {title: 'Ubuntu', value: 'Ubuntu, Arial, sans-serif'},
+                            {title: 'Oswald', value: 'Oswald, Arial, sans-serif'},
+                            {title: 'Playfair Display', value: '"Playfair Display", Georgia, serif'},
+                            {title: 'Merriweather', value: 'Merriweather, Georgia, serif'},
+                            {title: 'Nunito', value: 'Nunito, Arial, sans-serif'},
+                            {title: 'Poppins', value: 'Poppins, Arial, sans-serif'},
+                            {title: 'Fira Sans', value: '"Fira Sans", Arial, sans-serif'},
+                            {title: 'Noto Sans', value: '"Noto Sans", Arial, sans-serif'},
+                            {title: 'Work Sans', value: '"Work Sans", Arial, sans-serif'},
+                            {title: 'Cabin', value: 'Cabin, Arial, sans-serif'},
+                            {title: 'Lora', value: 'Lora, Georgia, serif'},
+                            {title: 'Crimson Text', value: '"Crimson Text", Georgia, serif'},
+                            {title: 'Bitter', value: 'Bitter, Georgia, serif'},
+                            {title: 'Libre Baskerville', value: '"Libre Baskerville", Georgia, serif'},
+                            {title: 'Domine', value: 'Domine, Georgia, serif'},
+                            {title: 'Cardo', value: 'Cardo, serif'},
+                            {title: 'EB Garamond', value: '"EB Garamond", serif'}
                         ],
                         onSelect: function (a) {
                             Lampa.Storage.set('font_family', a.value);
@@ -93,7 +118,7 @@
             }
 
             style.text(`
-                html, body, .selector, .settings-param { 
+                html, body, .selector, .settings-param, .view--title, .files__title { 
                     font-size: ${val}px !important;
                     font-family: ${fontFamily} !important;
                 }
