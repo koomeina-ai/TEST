@@ -1,14 +1,14 @@
 (function () {
     window.plugin_font_size = {
         name: 'Размер шрифта',
-        version: '1.4.1',
-        description: 'Отображение активных значений размера и шрифта'
+        version: '1.4.2',
+        description: 'Исправлена ошибка render() + актуальные значения'
     };
 
     function start() {
         Lampa.Settings.listener.follow('open', function (e) {
             if (e.name == 'interface') {
-                var item = $('<div class="settings-param selector font-size-selector" data-type="range" data-name="font_size_value">' +
+                var item = $('<div class="settings-param selector font-size-selector" data-name="font_size_value">' +
                     '<div class="settings-param__name">Размер шрифта</div>' +
                     '<div class="settings-param__value">16px</div>' +
                     '<div class="settings-param__descr">8-32px</div>' +
@@ -24,7 +24,7 @@
                         title: 'Размер шрифта',
                         items: fontSizes,
                         onSelect: function (a) {
-                            Lampa.Storage.set('font_size_value', a.value);
+                            Lampa.Storage.set('font_size_value', '' + a.value);
                             updateDisplays();
                             applyFont();
                             Lampa.Settings.update();
@@ -40,7 +40,7 @@
 
                 fontItem.on('hover:enter', function () {
                     Lampa.Select.show({
-                        title: 'Шрифты (прокрутите)',
+                        title: 'Шрифты',
                         items: [
                             {title: 'Arial', value: 'Arial, sans-serif'},
                             {title: 'Verdana', value: 'Verdana, Geneva, sans-serif'},
@@ -62,8 +62,6 @@
                 });
 
                 e.body.find('[data-name="interface_size"]').after(item).after(fontItem);
-                
-                // ✅ ИНИЦИАЛИЗИРУЕМ ПОКАЗАНИЕ АКТИВНЫХ ЗНАЧЕНИЙ
                 updateDisplays();
             }
         });
@@ -72,31 +70,28 @@
             var size = Lampa.Storage.get('font_size_value', '16');
             var family = Lampa.Storage.get('font_family', 'Arial, sans-serif');
             
-            // ✅ ПОКАЗЫВАЕМ АКТИВНЫЙ РАЗМЕР ШРИФТА
-            $('.settings-param[data-name="font_size_value"] .settings-param__value').text(size + 'px');
+            // ✅ Безопасное обновление значений
+            var sizeEl = $('.settings-param[data-name="font_size_value"] .settings-param__value');
+            var fontEl = $('.settings-param[data-name="font_family"] .settings-param__value');
             
-            // ✅ ПОКАЗЫВАЕМ АКТИВНЫЙ ШРИФТ
-            $('.settings-param[data-name="font_family"] .settings-param__value').text(family.split(',')[0].replace(/"/g, ''));
+            if (sizeEl.length) sizeEl.text(size + 'px');
+            if (fontEl.length) fontEl.text(family.split(',')[0].replace(/"/g, ''));
         }
 
         function applyFont() {
             var size = Lampa.Storage.get('font_size_value', '16');
             var family = Lampa.Storage.get('font_family', 'Arial, sans-serif');
             
+            // ✅ УДАЛЕН вызов Lampa.Activity.active().render()
             $('#plugin-font-size-style, #font-override-all').remove();
             
             $('<style id="font-override-all">').text(`
-                *:not(.native-font *) {
+                * {
                     font-family: ${family} !important;
                     font-size: ${size}px !important;
                     line-height: 1.2 !important;
                 }
-                html, body {
-                    font-family: ${family} !important;
-                    font-size: ${size}px !important;
-                }
-                .selector, .settings-param, .view--title, .files__title,
-                .item__name, .info__title, .category-full__title {
+                .selector, .settings-param {
                     font-family: ${family} !important;
                     font-size: ${size}px !important;
                 }
@@ -108,22 +103,18 @@
                 .font-size-selector.hover .settings-param__name {
                     color: #ffffff !important;
                 }
+                /* Исключения для нативных элементов */
+                input, textarea, select, canvas {
+                    font-size: ${size}px !important;
+                }
             `).appendTo('head');
-
-            if(Lampa.Activity.active()) {
-                Lampa.Activity.active().render();
-            }
         }
 
-        // Применяем при загрузке и обновляем отображение
-        setTimeout(function() {
-            applyFont();
-            updateDisplays();
-        }, 1000);
-        setTimeout(function() {
-            applyFont();
-            updateDisplays();
-        }, 3000);
+        // ✅ Множественные применения для надежности
+        setTimeout(applyFont, 500);
+        setTimeout(applyFont, 1500);
+        setTimeout(applyFont, 3000);
+        setTimeout(updateDisplays, 100);
     }
 
     if (window.appready) start();
