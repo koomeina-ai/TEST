@@ -1,130 +1,149 @@
 (function () {
-    window.plugin_font_size = {
-        name: 'Размер шрифта',
-        version: '1.5.2',
-        description: 'Шрифты с эмодзи + только читаемые'
+    window.plugin_plugins_manager = {
+        name: 'Менеджер плагинов',
+        version: '1.0.0',
+        description: 'Включать/выключать плагины из меню'
     };
 
+    let pluginsList = [];
+
     function start() {
+        // Добавляем в настройки раздел "Плагины"
         Lampa.Settings.listener.follow('open', function (e) {
-            if (e.name == 'interface') {
-                var item = $('<div class="settings-param selector font-size-selector" data-name="font_size_value">' +
-                    '<div class="settings-param__name">Размер шрифта</div>' +
-                    '<div class="settings-param__value">16px</div>' +
-                    '<div class="settings-param__descr">8-32px</div>' +
+            if (e.name == 'plugins_manager') {
+                createPluginsPanel(e);
+            }
+            else if (e.name == 'interface') {
+                // Добавляем кнопку в основной интерфейс
+                var managerItem = $('<div class="settings-param selector plugin-manager-selector">' +
+                    '<div class="settings-param__name">🛠️ Менеджер плагинов</div>' +
+                    '<div class="settings-param__value">Управление плагинами</div>' +
+                    '<div class="settings-param__descr">Вкл/выкл плагины</div>' +
                 '</div>');
 
-                var fontSizes = [];
-                for(var i = 8; i <= 32; i++) {
-                    fontSizes.push({title: i + 'px', value: i});
-                }
-
-                item.on('hover:enter', function () {
-                    Lampa.Select.show({
-                        title: 'Размер шрифта',
-                        items: fontSizes,
-                        onSelect: function (a) {
-                            Lampa.Storage.set('font_size_value', '' + a.value);
-                            updateDisplays();
-                            applyFont();
-                            Lampa.Settings.update();
-                        }
-                    });
+                managerItem.on('hover:enter', function () {
+                    Lampa.Settings.open('plugins_manager');
                 });
 
-                var fontItem = $('<div class="settings-param selector font-size-selector" data-name="font_family">' +
-                    '<div class="settings-param__name">Шрифт</div>' +
-                    '<div class="settings-param__value">Arial</div>' +
-                    '<div class="settings-param__descr">Стильные шрифты с иконками ✨</div>' +
-                '</div>');
-
-                fontItem.on('hover:enter', function () {
-                    Lampa.Select.show({
-                        title: '🎨 Шрифты с эмодзи',
-                        items: [
-                            // ✅ КЛАССИКА
-                            {title: '📝 Arial', value: 'Arial, sans-serif'},
-                            {title: '📖 Verdana', value: 'Verdana, Geneva, sans-serif'},
-                            {title: '💬 Tahoma', value: 'Tahoma, Geneva, sans-serif'},
-                            {title: '🖥️ Segoe UI', value: '"Segoe UI", Tahoma, Geneva, sans-serif'},
-                            {title: '📚 Times', value: '"Times New Roman", Times, serif'},
-                            {title: '✍️ Georgia', value: 'Georgia, serif'},
-                            {title: '🎯 Trebuchet', value: '"Trebuchet MS", Helvetica, sans-serif'},
-                            {title: '🔥 Impact', value: 'Impact, Haettenschweiler, sans-serif'},
-                            {title: '💻 Courier', value: '"Courier New", Courier, monospace'},
-                            {title: '⚙️ Consolas', value: 'Consolas, "Lucida Console", monospace'},
-                            
-                            // ✅ НЕОБЫЧНЫЕ
-                            {title: '😂 Comic Sans', value: '"Comic Sans MS", cursive, sans-serif'},
-                            {title: '💎 Papyrus', value: 'Papyrus, fantasy, cursive'},
-                            {title: '🖌️ Brush Script', value: '"Brush Script MT", cursive'},
-                            {title: '✋ Lucida Hand', value: '"Lucida Handwriting", cursive'},
-                            {title: '💫 Segoe Script', value: '"Segoe Script", cursive'},
-                            {title: '👶 Segoe Print', value: '"Segoe Print", cursive'},
-                            
-                            // ✅ КОДЕРСКИЕ
-                            {title: '🔧 Fira Code', value: '"Fira Code", Consolas, monospace'},
-                            {title: '🐛 JetBrains Mono', value: '"JetBrains Mono", Consolas, monospace'},
-                            
-                            // ✅ РЕТРО
-                            {title: '🇯🇵 MS Gothic', value: '"MS Gothic", monospace'}
-                        ],
-                        onSelect: function (a) {
-                            Lampa.Storage.set('font_family', a.value);
-                            updateDisplays();
-                            applyFont();
-                            Lampa.Settings.update();
-                        }
-                    });
-                });
-
-                e.body.find('[data-name="interface_size"]').after(item).after(fontItem);
-                updateDisplays();
+                e.body.append(managerItem);
             }
         });
 
-        function updateDisplays() {
-            var size = Lampa.Storage.get('font_size_value', '16');
-            var family = Lampa.Storage.get('font_family', 'Arial, sans-serif');
+        // Создаем панель управления плагинами
+        function createPluginsPanel(e) {
+            e.body.empty();
             
-            var sizeEl = $('.settings-param[data-name="font_size_value"] .settings-param__value');
-            var fontEl = $('.settings-param[data-name="font_family"] .settings-param__value');
-            
-            if (sizeEl.length) sizeEl.text(size + 'px');
-            if (fontEl.length) fontEl.text(family.split(',')[0].replace(/"/g, ''));
+            // Заголовок
+            var title = $('<div class="settings-panel__title-text">Менеджер плагинов</div>');
+            e.body.append(title);
+
+            // Кнопка обновить список
+            var refreshBtn = $('<div class="settings-param selector plugin-manager-selector">' +
+                '<div class="settings-param__name">🔄 Обновить список</div>' +
+            '</div>');
+            refreshBtn.on('hover:enter', scanPlugins);
+            e.body.append(refreshBtn);
+
+            // Список плагинов
+            var list = $('<div class="plugins-list"></div>');
+            e.body.append(list);
+
+            scanPlugins();
         }
 
-        function applyFont() {
-            var size = Lampa.Storage.get('font_size_value', '16');
-            var family = Lampa.Storage.get('font_family', 'Arial, sans-serif');
+        // Сканируем все плагины
+        function scanPlugins() {
+            pluginsList = [];
             
-            $('#plugin-font-size-style, #font-override-all').remove();
-            
-            $('<style id="font-override-all">').text(`
-                * {
-                    font-family: ${family} !important;
-                    font-size: ${size}px !important;
-                    line-height: 1.2 !important;
+            // Ищем все плагины в window
+            for (let key in window) {
+                if (key.indexOf('plugin_') === 0 && window[key] && window[key].name) {
+                    let plugin = window[key];
+                    let enabled = Lampa.Storage.get('plugin_' + key, 'true') !== 'false';
+                    
+                    pluginsList.push({
+                        name: plugin.name || key,
+                        key: key,
+                        enabled: enabled,
+                        version: plugin.version || '1.0',
+                        desc: plugin.description || 'Без описания'
+                    });
                 }
-                .selector, .settings-param, .view--title, .item__name {
-                    font-family: ${family} !important;
-                    font-size: ${size}px !important;
-                }
-                .font-size-selector.focus, .font-size-selector.hover {
-                    box-shadow: 0 0 0 3px #00ff00 !important;
-                    border-radius: 6px !important;
-                }
-                .font-size-selector.focus .settings-param__name,
-                .font-size-selector.hover .settings-param__name {
-                    color: #ffffff !important;
-                }
-            `).appendTo('head');
+            }
+
+            renderPluginsList();
         }
 
-        setTimeout(applyFont, 500);
-        setTimeout(applyFont, 1500);
-        setTimeout(applyFont, 3000);
-        setTimeout(updateDisplays, 100);
+        // Отрисовываем список
+        function renderPluginsList() {
+            var list = $('.plugins-list');
+            list.empty();
+
+            pluginsList.forEach(function(plugin, index) {
+                var status = plugin.enabled ? '🟢 Включен' : '🔴 Выключен';
+                var item = $('<div class="settings-param selector plugin-manager-selector">' +
+                    '<div class="settings-param__name">' + plugin.name + ' v' + plugin.version + '</div>' +
+                    '<div class="settings-param__value">' + status + '</div>' +
+                    '<div class="settings-param__descr">' + plugin.desc + '</div>' +
+                '</div>');
+
+                item.on('hover:enter', function() {
+                    togglePlugin(plugin.key, !plugin.enabled);
+                });
+
+                list.append(item);
+            });
+        }
+
+        // Включить/выключить плагин
+        function togglePlugin(pluginKey, enable) {
+            Lampa.Storage.set('plugin_' + pluginKey, enable);
+            
+            // Перезагружаем плагин если нужно
+            if (window[pluginKey] && window[pluginKey].toggle) {
+                window[pluginKey].toggle(enable);
+            }
+
+            // Обновляем список
+            scanPlugins();
+
+            // Показываем уведомление
+            var html = $('<div class="simple-notify">' +
+                '<div class="simple-notify__title">' + (enable ? 'Включен' : 'Выключен') + '</div>' +
+                '<div class="simple-notify__text">' + window[pluginKey]?.name + '</div>' +
+            '</div>');
+            
+            Lampa.Noty.show(html, {
+                time: 3000,
+                backdrop: true
+            });
+        }
+
+        // Зеленое выделение
+        var style = $('<style id="plugin-manager-style"></style>').appendTo('head');
+        style.text(`
+            .plugin-manager-selector.focus, .plugin-manager-selector.hover {
+                box-shadow: 0 0 0 3px #00ff00 !important;
+                border-radius: 6px !important;
+            }
+            .plugin-manager-selector.focus .settings-param__name,
+            .plugin-manager-selector.hover .settings-param__name {
+                color: #ffffff !important;
+            }
+        `);
+
+        // Добавляем в главное меню настроек
+        Lampa.Settings.main({
+            name: 'plugins_manager',
+            title: '🛠️ Плагины',
+            items: [{
+                title: 'Управление плагинами',
+                html: 'Включать/выключать плагины',
+                onHover: function() {
+                    Lampa.Settings.open('plugins_manager');
+                }
+            }]
+        });
     }
 
     if (window.appready) start();
