@@ -1,7 +1,6 @@
 (function() {
     'use strict';
     
-    // Функция поиска через TMDB
     async function tmdbSearch(query) {
         try {
             const response = await fetch(
@@ -14,43 +13,79 @@
         }
     }
     
-    // Создаем кнопку AI поиска
     function createAIButton() {
         if (document.querySelector('.ai-search-menu')) return;
         
-        const menu = document.querySelector('.menu-items, .menu, .full-start__menu, [class*="menu"]');
+        const selectors = [
+            '.menu-items', 
+            '.menu', 
+            '.full-start__menu', 
+            '.menu-row',
+            '[class*="menu"]',
+            '.categories'
+        ];
+        
+        let menu = null;
+        for (let sel of selectors) {
+            menu = document.querySelector(sel);
+            if (menu) break;
+        }
+        
         if (!menu) return;
         
         const aiItem = document.createElement('div');
-        aiItem.className = 'ai-search-menu selector menu__item menu-item-selector';
+        aiItem.className = 'ai-search-menu selector';
         aiItem.innerHTML = `
-            <div class="menu__icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                </svg>
+            <div style="display:flex;align-items:center;padding:15px 20px;border-bottom:1px solid #333;">
+                <div style="font-size:28px;margin-right:15px;">🔍</div>
+                <div>
+                    <div style="font-size:16px;font-weight:bold;color:white;">AI Поиск</div>
+                    <div style="font-size:12px;color:#aaa;">Поиск по описанию</div>
+                </div>
             </div>
-            <div class="menu__title">🔍 AI Поиск</div>
         `;
         
         aiItem.onclick = async function() {
-            const query = prompt('🎬 Введите описание фильма:\nпример: "море пираты приключения"');
+            const query = prompt('🎬 Введите описание:\n"море пираты", "любовь драма", "детектив"');
             if (!query) return;
             
-            Lampa.Noty.show('🔎 Ищем фильмы...');
+            Lampa.Noty.show('🔎 Ищем...');
             const results = await tmdbSearch(query);
             
             if (results.length) {
-                Lampa.Noty.show(`${results.length} результатов`);
-                // Переходим к результатам поиска
-                window.location.href = '#/search/' + encodeURIComponent(query);
+                Lampa.Noty.show(results.length + ' фильмов найдено!');
+                // ПРАВИЛЬНЫЙ переход к поиску БЕЗ синтаксических ошибок
+                if (window.Controller && Controller.toContent) {
+                    Controller.toContent({
+                        url: 'search',
+                        search: query,
+                        search_one: query,
+                        title: 'AI Поиск: ' + query
+                    });
+                } else {
+                    // Запасной вариант
+                    window.location.hash = '#!/search/' + encodeURIComponent(query);
+                }
             } else {
-                Lampa.Noty.show('Фильмы не найдены');
+                Lampa.Noty.show('Ничего не найдено');
             }
         };
         
         menu.appendChild(aiItem);
-        Lampa.Noty.show('✅ AI Поиск добавлен в меню!');
+        if (Lampa && Lampa.Noty) {
+            Lampa.Noty.show('✅ AI Поиск добавлен!');
+        }
     }
     
-    // Запускаем через 3 секунды и повторяем каждые 2 секунды
-    setTimeout(createAIBut
+    // Запуск с задержками для надежности
+    setTimeout(createAIButton, 2000);
+    setTimeout(createAIButton, 5000);
+    setTimeout(createAIButton, 10000);
+    
+    let attempts = 0;
+    const interval = setInterval(() => {
+        createAIButton();
+        attempts++;
+        if (attempts > 20) clearInterval(interval);
+    }, 2000);
+})();
