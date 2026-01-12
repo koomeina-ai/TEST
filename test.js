@@ -3,39 +3,70 @@
 
     if (!window.Lampa) return;
 
-    const PLUGIN_URL = document.currentScript.src;
+    let popup;
 
-    function openMenu() {
-        Lampa.Select.show({
-            title: 'TEST Backup Plugin',
-            items: [
-                {
-                    title: 'Проверка',
-                    onClick: function () {
-                        Lampa.Noty.show('Плагин работает ✔');
-                    }
-                }
-            ]
-        });
+    function createPopup() {
+        popup = document.createElement('div');
+        popup.id = 'movie_hint_popup';
+
+        popup.style.cssText = `
+            position: fixed;
+            left: 50%;
+            bottom: 8%;
+            transform: translateX(-50%);
+            max-width: 70%;
+            background: rgba(0,0,0,0.85);
+            color: #fff;
+            padding: 16px 20px;
+            border-radius: 12px;
+            z-index: 99999;
+            font-size: 15px;
+            line-height: 1.4;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,.6);
+        `;
+
+        document.body.appendChild(popup);
     }
 
-    Lampa.Plugins.add({
-        name: 'TEST Backup Plugin',
-        author: 'User',
-        version: '1.0.0',
-        description: 'Корректный плагин для LAMPA',
-        url: PLUGIN_URL,
+    function show(card) {
+        if (!popup) createPopup();
+        if (!card || !card.data) return;
 
-        onStart: function () {
-            Lampa.Listener.follow('menu', function (event) {
-                if (event.name !== 'plugins') return;
+        const d = card.data;
 
-                event.items.push({
-                    title: 'TEST Backup Plugin',
-                    description: 'Без крашей',
-                    onClick: openMenu
-                });
-            });
+        const title = d.title || d.name || 'Без названия';
+        const year = d.release_date ? d.release_date.slice(0, 4) : '';
+        const genres = (d.genres || []).map(g => g.name).join(', ');
+        const overview = d.overview || 'Описание отсутствует';
+
+        popup.innerHTML = `
+            <div style="font-size:18px;font-weight:600;margin-bottom:6px">
+                ${title} ${year ? `(${year})` : ''}
+            </div>
+            <div style="opacity:.7;margin-bottom:8px">
+                ${genres}
+            </div>
+            <div>
+                ${overview}
+            </div>
+        `;
+
+        popup.style.display = 'block';
+    }
+
+    function hide() {
+        if (popup) popup.style.display = 'none';
+    }
+
+    // отслеживаем фокус карточек
+    Lampa.Listener.follow('card', function (event) {
+        if (event.type === 'hover' || event.type === 'focus') {
+            show(event.card);
+        }
+
+        if (event.type === 'out' || event.type === 'blur') {
+            hide();
         }
     });
 
