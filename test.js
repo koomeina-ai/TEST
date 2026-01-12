@@ -1,27 +1,34 @@
-// ===== РЕГИСТРАЦИЯ ПЛАГИНА =====
+(function () {
+    'use strict';
 
-Lampa.Plugins.add({
-    name: 'LAMPA Backup',
-    author: 'ChatGPT',
-    version: '2.0',
-    description: 'Бэкап и восстановление настроек',
-    icon: 'backup',
+    if (!window.Lampa) {
+        console.log('LAMPA not found');
+        return;
+    }
 
-    onInstall: function () {
-        console.log('LAMPA Backup installed');
-    },
-
-    onStart: function () {
-        Lampa.Listener.follow('menu', function (event) {
-            if (event.name === 'plugins') {
-                event.items.push({
-                    title: 'LAMPA Backup',
-                    description: 'Импорт / экспорт настроек и плагинов',
+    function openMenu() {
+        Lampa.Select.show({
+            title: 'TEST Backup Plugin',
+            items: [
+                {
+                    title: 'Проверка',
+                    description: 'Если ты это видишь — всё работает',
                     onClick: function () {
-                        Plugin.open();
+                        Lampa.Noty.show('Плагин работает ✔');
                     }
-                });
-            }
+                }
+            ]
         });
     }
-});
+
+    Lampa.Listener.follow('menu', function (event) {
+        if (event.name !== 'plugins') return;
+
+        event.items.push({
+            title: 'TEST Backup Plugin',
+            description: 'Тест без Settings.add',
+            onClick: openMenu
+        });
+    });
+
+})();
