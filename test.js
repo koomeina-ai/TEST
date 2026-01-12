@@ -1,67 +1,53 @@
 (function() {
     'use strict';
     
-    const api = {
-        async search(query, page = 1) {
-            const url = `https://api.themoviedb.org/3/search/multi?api_key=3fd2be6f0c70a2a598f084ddfb75487c&language=ru-RU&query=${encodeURIComponent(query)}&page=${page}`;
-            try {
-                const resp = await fetch(url);
-                const json = await resp.json();
-                return json.results || [];
-            } catch(e) {
-                console.error('TMDB error:', e);
-                return [];
+    function addAIButton() {
+        // Добавляем на главный экран как плитку
+        if (window.Lampa && !document.querySelector('.ai-tile')) {
+            const tile = document.createElement('div');
+            tile.className = 'ai-tile selector full-start__button-item';
+            tile.innerHTML = `
+                <div class="full-start__button-icon" style="background: linear-gradient(45deg, #4285f4, #34a853); width: 60px; height: 60px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto;">🔍</div>
+                <div class="full-start__button-text" style="font-size: 12px; text-align: center; color: white;">AI Поиск</div>
+            `;
+            tile.onclick = async () => {
+                const query = prompt('🎬 Фильмы про что найти?\n(море, пираты, любовь, детектив...)');
+                if (!query) return;
+                
+                Lampa.Noty.show('🔎 Ищем...');
+                try {
+                    const resp = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=3fd2be6f0c70a2a598f084ddfb75487c&language=ru-RU&query=${encodeURIComponent(query)}&page=1`);
+                    const data = await resp.json();
+                    const results = data.results || [];
+                    
+                    if (results.length) {
+                        Lampa.Noty.show(`${results.length} фильмов найдено!`);
+                        Controller.toContent({
+                            url: 'search',
+                            title: `AI Поиск: ${query}`,
+                            search: query,
+                            search_one: query,
+                            component: 'full',
+                            page: 1
+                        });
+                    } else {
+                        Lampa.Noty.show('Ничего не найдено :(');
+                    }
+                } catch(e) {
+                    Lampa.Noty.show('Ошибка интернета');
+                }
+            };
+            
+            // Вставляем в меню плиток (главный экран)
+            const menu = document.querySelector('.full-start__buttons');
+            if (menu) {
+                menu.appendChild(tile);
+                Lampa.Noty.show('✅ AI Поиск добавлен на главный экран!');
             }
         }
-    };
-
-    // Ждем загрузки Lampa и добавляем кнопку в поиск
-    const addButton = () => {
-        const searchContainer = document.querySelector('.search__input-wrapper, .searchbox, .view--search .input');
-        if (searchContainer && !searchContainer.querySelector('.ai-search-btn')) {
-            const btn = document.createElement('div');
-            btn.className = 'ai-search-btn selector';
-            btn.style.cssText = 'padding:10px; background:#4285f4; color:white; border-radius:5px; cursor:pointer; margin-left:10px; display:inline-block;';
-            btn.textContent = '🔍 AI Поиск';
-            btn.onclick = async () => {
-                const keywords = prompt('Введите описание фильма (море, пираты, любовь):');
-                if (!keywords) return;
-                
-                // Показываем результаты в категории "full"
-                const results = await api.search(keywords);
-                Lampa.Activity.push({
-                    url: '',
-                    title: `AI Поиск: ${keywords}`,
-                    component: 'full',
-                    html: Lampa.Template.get('items_line', {
-                        items: results.slice(0, 20).map(item => ({
-                            title: item.title || item.name,
-                            original_title: item.original_title || item.original_name,
-                            img: `https://image.tmdb.org/t/p/w300${item.poster_path}`,
-                            description: item.overview?.slice(0, 100),
-                            year: item.release_date?.slice(0,4) || item.first_air_date?.slice(0,4),
-                            genres: item.genre_ids
-                        }))
-                    })
-                });
-            };
-            searchContainer.appendChild(btn);
-            console.log('AI Search button added');
-        }
-    };
-
-    // Проверяем каждые 500мс до появления поиска
-    const interval = setInterval(() => {
-        if (document.querySelector('.view--search, .search')) {
-            addButton();
-        }
-        if (Lampa && Lampa.Activity) clearInterval(interval);
-    }, 500);
-
-    // Альтернатива: добавляем в главное меню
-    if (window.Lampa) {
-        Lampa.Listener.follow('app', (e) => {
-            if (e.type == 'ready') setTimeout(addButton, 2000);
-        });
     }
+    
+    // Ждем загрузку главной страницы
+    setTimeout(addAIButton, 3000);
+    setInterval(addAIButton, 5000); // Пытаемся 10 секунд
 })();
