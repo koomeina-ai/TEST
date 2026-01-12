@@ -1,10 +1,9 @@
 (function () {
     'use strict';
 
-    if (!window.Lampa) {
-        console.log('LAMPA not found');
-        return;
-    }
+    if (!window.Lampa) return;
+
+    const PLUGIN_URL = document.currentScript.src;
 
     function openMenu() {
         Lampa.Select.show({
@@ -12,7 +11,6 @@
             items: [
                 {
                     title: 'Проверка',
-                    description: 'Если ты это видишь — всё работает',
                     onClick: function () {
                         Lampa.Noty.show('Плагин работает ✔');
                     }
@@ -21,14 +19,24 @@
         });
     }
 
-    Lampa.Listener.follow('menu', function (event) {
-        if (event.name !== 'plugins') return;
+    Lampa.Plugins.add({
+        name: 'TEST Backup Plugin',
+        author: 'User',
+        version: '1.0.0',
+        description: 'Корректный плагин для LAMPA',
+        url: PLUGIN_URL,
 
-        event.items.push({
-            title: 'TEST Backup Plugin',
-            description: 'Тест без Settings.add',
-            onClick: openMenu
-        });
+        onStart: function () {
+            Lampa.Listener.follow('menu', function (event) {
+                if (event.name !== 'plugins') return;
+
+                event.items.push({
+                    title: 'TEST Backup Plugin',
+                    description: 'Без крашей',
+                    onClick: openMenu
+                });
+            });
+        }
     });
 
 })();
